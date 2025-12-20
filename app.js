@@ -9,12 +9,18 @@ class BingoGame {
         this.isHost = false;
         this.gameState = null;
         this.gameListener = null;
+        this.onlineListener = null;
+        this.challengeListener = null;
         this.userStats = null;
+        this.onlinePlayers = {};
+        this.pendingChallenge = null;
         
         this.initializeElements();
         this.attachEventListeners();
         this.checkLogin();
         this.waitForFirebase();
+        this.initDarkMode();
+        this.setupAutoSave();
     }
 
     waitForFirebase() {
@@ -44,6 +50,7 @@ class BingoGame {
         this.loginBtn = document.getElementById('loginBtn');
         this.registerBtn = document.getElementById('registerBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
+        this.deleteAccountBtn = document.getElementById('deleteAccountBtn');
         this.createGameBtn = document.getElementById('createGameBtn');
         this.joinGameBtn = document.getElementById('joinGameBtn');
         this.joinGameConfirmBtn = document.getElementById('joinGameConfirmBtn');
@@ -99,6 +106,9 @@ class BingoGame {
         this.loginBtn.addEventListener('click', () => this.login());
         this.registerBtn.addEventListener('click', () => this.register());
         this.logoutBtn.addEventListener('click', () => this.logout());
+        if (this.deleteAccountBtn) {
+            this.deleteAccountBtn.addEventListener('click', () => this.deleteAccount());
+        }
         
         // Game
         this.createGameBtn.addEventListener('click', () => this.createGame());
@@ -1099,20 +1109,3 @@ BingoGame.prototype.setupAutoSave = function() {
         }
     }, 10000);
 };
-
-// Update constructor to initialize new features
-const originalConstructor = BingoGame;
-BingoGame = function() {
-    originalConstructor.call(this);
-    this.initDarkMode();
-    this.setupAutoSave();
-    
-    // Add delete account button listener
-    const deleteBtn = document.getElementById('deleteAccountBtn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', () => this.deleteAccount());
-    }
-};
-
-// Copy prototype
-BingoGame.prototype = originalConstructor.prototype;
