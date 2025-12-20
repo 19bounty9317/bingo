@@ -116,25 +116,31 @@ class BingoGame {
         }
         
         // Game
-        this.createGameBtn.addEventListener('click', () => this.createGame());
-        this.joinGameBtn.addEventListener('click', () => this.showJoinScreen());
-        this.joinGameConfirmBtn.addEventListener('click', () => this.joinGame());
-        this.backToSetupBtn.addEventListener('click', () => this.showSetupScreen());
-        this.copyGameIdBtn.addEventListener('click', () => this.copyGameId());
-        this.cancelGameBtn.addEventListener('click', () => this.cancelGame());
-        this.newGameBtn.addEventListener('click', () => this.resetGame());
-        this.closeModalBtn.addEventListener('click', () => this.closeModal());
+        if (this.createGameBtn) this.createGameBtn.addEventListener('click', () => this.createGame());
+        if (this.joinGameBtn) this.joinGameBtn.addEventListener('click', () => this.showJoinScreen());
+        if (this.joinGameConfirmBtn) this.joinGameConfirmBtn.addEventListener('click', () => this.joinGame());
+        if (this.backToSetupBtn) this.backToSetupBtn.addEventListener('click', () => this.showSetupScreen());
+        if (this.copyGameIdBtn) this.copyGameIdBtn.addEventListener('click', () => this.copyGameId());
+        if (this.cancelGameBtn) this.cancelGameBtn.addEventListener('click', () => this.cancelGame());
+        if (this.newGameBtn) this.newGameBtn.addEventListener('click', () => this.resetGame());
+        if (this.closeModalBtn) this.closeModalBtn.addEventListener('click', () => this.closeModal());
         
         // Enter key support
-        this.loginPassword.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.login();
-        });
-        this.registerPasswordConfirm.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.register();
-        });
-        this.gameIdInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.joinGame();
-        });
+        if (this.loginPassword) {
+            this.loginPassword.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.login();
+            });
+        }
+        if (this.registerPasswordConfirm) {
+            this.registerPasswordConfirm.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.register();
+            });
+        }
+        if (this.gameIdInput) {
+            this.gameIdInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.joinGame();
+            });
+        }
     }
 
     showLoginForm() {
