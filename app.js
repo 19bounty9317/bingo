@@ -17,8 +17,7 @@ class BingoGame {
         
         this.initializeElements();
         this.attachEventListeners();
-        this.checkLogin();
-        this.waitForFirebase();
+        this.waitForFirebase(); // Wartet auf Firebase, dann checkLogin
         this.initDarkMode();
         this.setupAutoSave();
     }
@@ -28,6 +27,7 @@ class BingoGame {
             if (window.firebaseDb) {
                 clearInterval(checkFirebase);
                 console.log('✅ Firebase verbunden!');
+                this.checkLogin(); // Auto-login nach Firebase-Verbindung
             }
         }, 100);
     }
@@ -154,17 +154,23 @@ class BingoGame {
     async checkLogin() {
         const savedUserId = localStorage.getItem('bingo_user_id');
         if (savedUserId && window.firebaseDb) {
+            console.log('Auto-login attempt for user:', savedUserId);
             try {
                 const user = await this.loadUser(savedUserId);
                 if (user) {
+                    console.log('Auto-login successful:', user.username);
                     this.userId = savedUserId;
                     this.username = user.username;
                     this.userStats = user.stats;
                     this.playerId = this.generateId();
                     this.showSetupScreen();
+                } else {
+                    console.log('User not found, clearing saved ID');
+                    localStorage.removeItem('bingo_user_id');
                 }
             } catch (error) {
                 console.error('Auto-login failed:', error);
+                localStorage.removeItem('bingo_user_id');
             }
         }
     }
