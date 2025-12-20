@@ -65,6 +65,24 @@ body.dark-mode .online-players {
     background: #2a2a3e;
 }
 
+.bingo-cell.marked {
+    background: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.bingo-cell.opponent-marked {
+    background: #dc3545;
+    color: white;
+    border-color: #dc3545;
+}
+
+.bingo-cell.free {
+    background: #ffc107;
+    color: #333;
+    border-color: #ffc107;
+}
+
 body.dark-mode .bingo-cell {
     background: #2a2a3e;
     color: #e0e0e0;
