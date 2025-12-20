@@ -38,7 +38,8 @@ class BingoGame {
         this.setupScreen = document.getElementById('setupScreen');
         this.joinScreen = document.getElementById('joinScreen');
         this.waitingScreen = document.getElementById('waitingScreen');
-        this.gameScreen = document.getElementById('gameScreen');
+        this.gameModal = document.getElementById('gameModal');
+        this.closeGameBtn = document.getElementById('closeGameBtn');
         
         // Tabs
         this.loginTab = document.getElementById('loginTab');
@@ -59,6 +60,10 @@ class BingoGame {
         this.cancelGameBtn = document.getElementById('cancelGameBtn');
         this.newGameBtn = document.getElementById('newGameBtn');
         this.closeModalBtn = document.getElementById('closeModalBtn');
+        
+        if (this.closeGameBtn) {
+            this.closeGameBtn.addEventListener('click', () => this.closeGameModal());
+        }
         
         // Login Inputs
         this.loginUsername = document.getElementById('loginUsername');
@@ -509,16 +514,24 @@ class BingoGame {
     async markCell(index) {
         if (this.gameState.status !== 'playing') return;
         
+        console.log('Mark cell:', index);
+        
         const markedArray = this.isHost ? this.gameState.hostMarked : this.gameState.guestMarked;
         
         if (markedArray.includes(index)) {
             const idx = markedArray.indexOf(index);
             markedArray.splice(idx, 1);
+            console.log('Unmarked cell:', index);
         } else {
             markedArray.push(index);
+            console.log('Marked cell:', index);
         }
         
+        console.log('Marked array:', markedArray);
+        
         await this.saveGameState();
+        console.log('Game state saved');
+        
         this.updateGameDisplay();
         this.checkForBingos();
     }
@@ -668,8 +681,18 @@ class BingoGame {
         this.yourScore.textContent = yourMarked.length;
         this.opponentScore.textContent = opponentMarked.length;
         
-        this.yourName.textContent = this.username;
-        this.opponentName.textContent = this.isHost ? this.gameState.guestName : this.gameState.hostName;
+        // Set player names
+        const yourName = this.username;
+        const opponentName = this.isHost ? this.gameState.guestName : this.gameState.hostName;
+        
+        this.yourName.textContent = yourName;
+        this.opponentName.textContent = opponentName || 'Warte...';
+        
+        // Set board titles with player names
+        const yourBoardTitle = document.getElementById('yourBoardTitle');
+        const opponentBoardTitle = document.getElementById('opponentBoardTitle');
+        if (yourBoardTitle) yourBoardTitle.textContent = yourName;
+        if (opponentBoardTitle) opponentBoardTitle.textContent = opponentName || 'Gegner';
         
         if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.isHost ? (this.gameState.hostWins || 0) : (this.gameState.guestWins || 0);
         if (this.opponentWinsDisplay) this.opponentWinsDisplay.textContent = this.isHost ? (this.gameState.guestWins || 0) : (this.gameState.hostWins || 0);
@@ -702,9 +725,13 @@ class BingoGame {
     listenToGameChanges() {
         if (!window.firebaseDb || !this.gameId) return;
         
+        console.log('Starting to listen to game:', this.gameId);
+        
         const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
         
         this.gameListener = window.firebaseOnValue(gameRef, (snapshot) => {
+            console.log('Game update received');
+            
             if (!snapshot.exists()) {
                 alert('Spiel wurde beendet!');
                 this.resetGame();
@@ -712,13 +739,16 @@ class BingoGame {
             }
             
             const updatedState = snapshot.val();
+            console.log('Updated state:', updatedState);
+            
             this.gameState = updatedState;
             
-            if (this.isHost && updatedState.status === 'playing' && this.gameScreen.classList.contains('hidden')) {
+            if (this.isHost && updatedState.status === 'playing' && this.gameModal.classList.contains('hidden')) {
                 this.showGameScreen();
             }
             
-            if (!this.gameScreen.classList.contains('hidden')) {
+            if (!this.gameModal.classList.contains('hidden')) {
+                console.log('Updating display...');
                 this.updateGameDisplay();
                 this.updateBingoDisplay();
                 
@@ -770,7 +800,7 @@ class BingoGame {
         this.setupScreen.classList.add('hidden');
         this.joinScreen.classList.add('hidden');
         this.waitingScreen.classList.add('hidden');
-        this.gameScreen.classList.add('hidden');
+        this.gameModal.classList.add('hidden');
     }
 
     showSetupScreen() {
@@ -782,7 +812,7 @@ class BingoGame {
         this.setupScreen.classList.remove('hidden');
         this.joinScreen.classList.add('hidden');
         this.waitingScreen.classList.add('hidden');
-        this.gameScreen.classList.add('hidden');
+        this.gameModal.classList.add('hidden');
     }
 
     showJoinScreen() {
@@ -800,9 +830,16 @@ class BingoGame {
     showGameScreen() {
         this.waitingScreen.classList.add('hidden');
         this.joinScreen.classList.add('hidden');
-        this.gameScreen.classList.remove('hidden');
+        this.gameModal.classList.remove('hidden');
         this.updateGameDisplay();
         this.updateBingoDisplay();
+    }
+    
+    closeGameModal() {
+        this.gameModal.classList.add('hidden');
+        this.stopListening();
+        this.gameId = null;
+        this.gameState = null;
     }
 }
 
