@@ -14,19 +14,64 @@
         <div id="loginScreen" class="screen">
             <div class="card">
                 <h2>Willkommen!</h2>
-                <div class="form-group">
-                    <label>Dein Benutzername:</label>
-                    <input type="text" id="usernameInput" placeholder="z.B. RocketPlayer123" maxlength="20">
+                <div class="tabs">
+                    <button class="tab-btn active" id="loginTab">Anmelden</button>
+                    <button class="tab-btn" id="registerTab">Registrieren</button>
                 </div>
-                <button id="loginBtn" class="btn btn-primary">Anmelden</button>
+                
+                <!-- Login Form -->
+                <div id="loginForm" class="tab-content">
+                    <div class="form-group">
+                        <label>Benutzername:</label>
+                        <input type="text" id="loginUsername" placeholder="Dein Benutzername">
+                    </div>
+                    <div class="form-group">
+                        <label>Passwort:</label>
+                        <input type="password" id="loginPassword" placeholder="Dein Passwort">
+                    </div>
+                    <button id="loginBtn" class="btn btn-primary">Anmelden</button>
+                </div>
+                
+                <!-- Register Form -->
+                <div id="registerForm" class="tab-content hidden">
+                    <div class="form-group">
+                        <label>Benutzername:</label>
+                        <input type="text" id="registerUsername" placeholder="Min. 3 Zeichen" maxlength="20">
+                    </div>
+                    <div class="form-group">
+                        <label>Passwort:</label>
+                        <input type="password" id="registerPassword" placeholder="Min. 6 Zeichen">
+                    </div>
+                    <div class="form-group">
+                        <label>Passwort wiederholen:</label>
+                        <input type="password" id="registerPasswordConfirm" placeholder="Passwort bestätigen">
+                    </div>
+                    <button id="registerBtn" class="btn btn-primary">Registrieren</button>
+                </div>
             </div>
         </div>
 
         <!-- Setup Screen -->
         <div id="setupScreen" class="screen hidden">
             <div class="card">
-                <div class="user-badge">
-                    <span>👤 <span id="currentUsername"></span></span>
+                <div class="user-profile">
+                    <div class="user-badge">
+                        <span>👤 <span id="currentUsername"></span></span>
+                    </div>
+                    <div class="user-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="winsCount">0</span>
+                            <span class="stat-label">Siege</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="lossesCount">0</span>
+                            <span class="stat-label">Niederlagen</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="totalGamesCount">0</span>
+                            <span class="stat-label">Gesamt</span>
+                        </div>
+                    </div>
                 </div>
                 <h2>Spiel erstellen</h2>
                 <div class="form-group">
@@ -52,8 +97,13 @@
         <!-- Join Screen -->
         <div id="joinScreen" class="screen hidden">
             <div class="card">
-                <div class="user-badge">
-                    <span>👤 <span id="currentUsernameJoin"></span></span>
+                <div class="user-profile">
+                    <div class="user-badge">
+                        <span>👤 <span id="currentUsernameJoin"></span></span>
+                    </div>
+                    <div class="user-stats-small">
+                        <span>🏆 <span id="winsCountJoin">0</span> Siege</span>
+                    </div>
                 </div>
                 <h2>Spiel beitreten</h2>
                 <div class="form-group">
@@ -84,6 +134,9 @@
             <div class="game-header">
                 <div class="player-info">
                     <div class="player-name" id="yourName">Du</div>
+                    <div class="player-stats-game">
+                        <span>🏆 <span id="yourWinsDisplay">0</span></span>
+                    </div>
                     <div class="player-score">
                         <span id="yourScore">0</span>/25
                     </div>
@@ -94,6 +147,9 @@
                 </div>
                 <div class="player-info">
                     <div class="player-name" id="opponentName">Gegner</div>
+                    <div class="player-stats-game">
+                        <span>🏆 <span id="opponentWinsDisplay">0</span></span>
+                    </div>
                     <div class="player-score">
                         <span id="opponentScore">0</span>/25
                     </div>

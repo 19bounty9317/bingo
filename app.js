@@ -1,13 +1,15 @@
-// Rocket League Bingo - Online Multiplayer mit Firebase
+// Rocket League Bingo - Online Multiplayer mit User-System
 
 class BingoGame {
     constructor() {
         this.username = null;
+        this.userId = null;
         this.playerId = null;
         this.gameId = null;
         this.isHost = false;
         this.gameState = null;
         this.gameListener = null;
+        this.userStats = null;
         
         this.initializeElements();
         this.attachEventListeners();
@@ -16,7 +18,6 @@ class BingoGame {
     }
 
     waitForFirebase() {
-        // Warte bis Firebase geladen ist
         const checkFirebase = setInterval(() => {
             if (window.firebaseDb) {
                 clearInterval(checkFirebase);
@@ -33,8 +34,15 @@ class BingoGame {
         this.waitingScreen = document.getElementById('waitingScreen');
         this.gameScreen = document.getElementById('gameScreen');
         
+        // Tabs
+        this.loginTab = document.getElementById('loginTab');
+        this.registerTab = document.getElementById('registerTab');
+        this.loginForm = document.getElementById('loginForm');
+        this.registerForm = document.getElementById('registerForm');
+        
         // Buttons
         this.loginBtn = document.getElementById('loginBtn');
+        this.registerBtn = document.getElementById('registerBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
         this.createGameBtn = document.getElementById('createGameBtn');
         this.joinGameBtn = document.getElementById('joinGameBtn');
@@ -45,8 +53,14 @@ class BingoGame {
         this.newGameBtn = document.getElementById('newGameBtn');
         this.closeModalBtn = document.getElementById('closeModalBtn');
         
-        // Inputs
-        this.usernameInput = document.getElementById('usernameInput');
+        // Login Inputs
+        this.loginUsername = document.getElementById('loginUsername');
+        this.loginPassword = document.getElementById('loginPassword');
+        this.registerUsername = document.getElementById('registerUsername');
+        this.registerPassword = document.getElementById('registerPassword');
+        this.registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
+        
+        // Game Inputs
         this.minNumberInput = document.getElementById('minNumber');
         this.maxNumberInput = document.getElementById('maxNumber');
         this.allowDuplicatesInput = document.getElementById('allowDuplicates');
@@ -55,10 +69,16 @@ class BingoGame {
         // Displays
         this.currentUsername = document.getElementById('currentUsername');
         this.currentUsernameJoin = document.getElementById('currentUsernameJoin');
+        this.winsCount = document.getElementById('winsCount');
+        this.lossesCount = document.getElementById('lossesCount');
+        this.totalGamesCount = document.getElementById('totalGamesCount');
+        this.winsCountJoin = document.getElementById('winsCountJoin');
         this.playerNameDisplay = document.getElementById('playerNameDisplay');
         this.gameIdDisplay = document.getElementById('gameIdDisplay');
         this.yourName = document.getElementById('yourName');
         this.opponentName = document.getElementById('opponentName');
+        this.yourWinsDisplay = document.getElementById('yourWinsDisplay');
+        this.opponentWinsDisplay = document.getElementById('opponentWinsDisplay');
         this.yourScore = document.getElementById('yourScore');
         this.opponentScore = document.getElementById('opponentScore');
         this.yourBingoStatus = document.getElementById('yourBingoStatus');
@@ -71,8 +91,16 @@ class BingoGame {
     }
 
     attachEventListeners() {
+        // Tabs
+        this.loginTab.addEventListener('click', () => this.showLoginForm());
+        this.registerTab.addEventListener('click', () => this.showRegisterForm());
+        
+        // Auth
         this.loginBtn.addEventListener('click', () => this.login());
+        this.registerBtn.addEventListener('click', () => this.register());
         this.logoutBtn.addEventListener('click', () => this.logout());
+        
+        // Game
         this.createGameBtn.addEventListener('click', () => this.createGame());
         this.joinGameBtn.addEventListener('click', () => this.showJoinScreen());
         this.joinGameConfirmBtn.addEventListener('click', () => this.joinGame());
@@ -83,45 +111,237 @@ class BingoGame {
         this.closeModalBtn.addEventListener('click', () => this.closeModal());
         
         // Enter key support
-        this.usernameInput.addEventListener('keypress', (e) => {
+        this.loginPassword.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.login();
+        });
+        this.registerPasswordConfirm.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.register();
         });
         this.gameIdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinGame();
         });
     }
 
-    checkLogin() {
-        const savedUser = localStorage.getItem('bingo_username');
-        if (savedUser) {
-            this.username = savedUser;
-            this.playerId = this.generateId();
-            this.showSetupScreen();
+    showLoginForm() {
+        this.loginTab.classList.add('active');
+        this.registerTab.classList.remove('active');
+        this.loginForm.classList.remove('hidden');
+        this.registerForm.classList.add('hidden');
+    }
+
+    showRegisterForm() {
+        this.registerTab.classList.add('active');
+        this.loginTab.classList.remove('active');
+        this.registerForm.classList.remove('hidden');
+        this.loginForm.classList.add('hidden');
+    }
+
+    async checkLogin() {
+        const savedUserId = localStorage.getItem('bingo_user_id');
+        if (savedUserId && window.firebaseDb) {
+            try {
+                const user = await this.loadUser(savedUserId);
+                if (user) {
+                    this.userId = savedUserId;
+                    this.username = user.username;
+                    this.userStats = user.stats;
+                    this.playerId = this.generateId();
+                    this.showSetupScreen();
+                }
+            } catch (error) {
+                console.error('Auto-login failed:', error);
+            }
         }
     }
 
-    login() {
-        const username = this.usernameInput.value.trim();
+    async register() {
+        const username = this.registerUsername.value.trim();
+        const password = this.registerPassword.value;
+        const passwordConfirm = this.registerPasswordConfirm.value;
         
-        if (!username) {
-            alert('Bitte gib einen Benutzernamen ein!');
-            return;
-        }
-        
-        if (username.length < 3) {
+        if (!username || username.length < 3) {
             alert('Benutzername muss mindestens 3 Zeichen lang sein!');
             return;
         }
         
-        this.username = username;
-        this.playerId = this.generateId();
-        localStorage.setItem('bingo_username', username);
-        this.showSetupScreen();
+        if (!password || password.length < 6) {
+            alert('Passwort muss mindestens 6 Zeichen lang sein!');
+            return;
+        }
+        
+        if (password !== passwordConfirm) {
+            alert('Passwörter stimmen nicht überein!');
+            return;
+        }
+
+        if (!window.firebaseDb) {
+            alert('Firebase wird geladen, bitte warte...');
+            return;
+        }
+
+        try {
+            // Check if username exists
+            const usersRef = window.firebaseRef(window.firebaseDb, 'users');
+            const snapshot = await window.firebaseGet(usersRef);
+            
+            if (snapshot.exists()) {
+                const users = snapshot.val();
+                for (let userId in users) {
+                    if (users[userId].username.toLowerCase() === username.toLowerCase()) {
+                        alert('Benutzername bereits vergeben!');
+                        return;
+                    }
+                }
+            }
+
+            // Create user
+            this.userId = this.generateId();
+            const hashedPassword = await this.hashPassword(password);
+            
+            const userData = {
+                userId: this.userId,
+                username: username,
+                password: hashedPassword,
+                stats: {
+                    wins: 0,
+                    losses: 0,
+                    totalGames: 0
+                },
+                createdAt: Date.now()
+            };
+
+            const userRef = window.firebaseRef(window.firebaseDb, `users/${this.userId}`);
+            await window.firebaseSet(userRef, userData);
+
+            this.username = username;
+            this.userStats = userData.stats;
+            this.playerId = this.generateId();
+            
+            localStorage.setItem('bingo_user_id', this.userId);
+            
+            alert('✅ Registrierung erfolgreich!');
+            this.showSetupScreen();
+            
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('Fehler bei der Registrierung!');
+        }
+    }
+
+    async login() {
+        const username = this.loginUsername.value.trim();
+        const password = this.loginPassword.value;
+        
+        if (!username || !password) {
+            alert('Bitte Benutzername und Passwort eingeben!');
+            return;
+        }
+
+        if (!window.firebaseDb) {
+            alert('Firebase wird geladen, bitte warte...');
+            return;
+        }
+
+        try {
+            const usersRef = window.firebaseRef(window.firebaseDb, 'users');
+            const snapshot = await window.firebaseGet(usersRef);
+            
+            if (!snapshot.exists()) {
+                alert('Benutzername oder Passwort falsch!');
+                return;
+            }
+
+            const users = snapshot.val();
+            let foundUser = null;
+            
+            for (let userId in users) {
+                if (users[userId].username.toLowerCase() === username.toLowerCase()) {
+                    foundUser = { userId, ...users[userId] };
+                    break;
+                }
+            }
+
+            if (!foundUser) {
+                alert('Benutzername oder Passwort falsch!');
+                return;
+            }
+
+            const hashedPassword = await this.hashPassword(password);
+            if (hashedPassword !== foundUser.password) {
+                alert('Benutzername oder Passwort falsch!');
+                return;
+            }
+
+            this.userId = foundUser.userId;
+            this.username = foundUser.username;
+            this.userStats = foundUser.stats;
+            this.playerId = this.generateId();
+            
+            localStorage.setItem('bingo_user_id', this.userId);
+            
+            this.showSetupScreen();
+            
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Fehler beim Anmelden!');
+        }
+    }
+
+    async hashPassword(password) {
+        // Simple hash for demo - in production use proper encryption!
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password + 'bingo_salt_2024');
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async loadUser(userId) {
+        if (!window.firebaseDb) return null;
+        
+        try {
+            const userRef = window.firebaseRef(window.firebaseDb, `users/${userId}`);
+            const snapshot = await window.firebaseGet(userRef);
+            return snapshot.exists() ? snapshot.val() : null;
+        } catch (error) {
+            console.error('Load user error:', error);
+            return null;
+        }
+    }
+
+    async updateUserStats(won) {
+        if (!this.userId || !window.firebaseDb) return;
+        
+        try {
+            this.userStats.totalGames++;
+            if (won) {
+                this.userStats.wins++;
+            } else {
+                this.userStats.losses++;
+            }
+
+            const statsRef = window.firebaseRef(window.firebaseDb, `users/${this.userId}/stats`);
+            await window.firebaseSet(statsRef, this.userStats);
+            
+            this.updateStatsDisplay();
+        } catch (error) {
+            console.error('Update stats error:', error);
+        }
+    }
+
+    updateStatsDisplay() {
+        if (this.winsCount) this.winsCount.textContent = this.userStats.wins;
+        if (this.lossesCount) this.lossesCount.textContent = this.userStats.losses;
+        if (this.totalGamesCount) this.totalGamesCount.textContent = this.userStats.totalGames;
+        if (this.winsCountJoin) this.winsCountJoin.textContent = this.userStats.wins;
+        if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.userStats.wins;
     }
 
     logout() {
-        localStorage.removeItem('bingo_username');
+        localStorage.removeItem('bingo_user_id');
+        this.userId = null;
         this.username = null;
+        this.userStats = null;
         this.playerId = null;
         this.showLoginScreen();
     }
@@ -141,7 +361,7 @@ class BingoGame {
         }
 
         if (!window.firebaseDb) {
-            alert('Firebase wird geladen, bitte warte einen Moment...');
+            alert('Firebase wird geladen, bitte warte...');
             return;
         }
 
@@ -153,9 +373,13 @@ class BingoGame {
         this.gameState = {
             gameId: this.gameId,
             hostId: this.playerId,
+            hostUserId: this.userId,
             hostName: this.username,
+            hostWins: this.userStats.wins,
             guestId: null,
+            guestUserId: null,
             guestName: null,
+            guestWins: 0,
             settings: { min, max, allowDuplicates },
             hostBoard: numbers.host,
             guestBoard: numbers.guest,
@@ -182,7 +406,7 @@ class BingoGame {
         }
 
         if (!window.firebaseDb) {
-            alert('Firebase wird geladen, bitte warte einen Moment...');
+            alert('Firebase wird geladen, bitte warte...');
             return;
         }
 
@@ -203,15 +427,17 @@ class BingoGame {
             this.isHost = false;
             this.gameState = gameState;
             this.gameState.guestId = this.playerId;
+            this.gameState.guestUserId = this.userId;
             this.gameState.guestName = this.username;
+            this.gameState.guestWins = this.userStats.wins;
             this.gameState.status = 'playing';
             
             await this.saveGameState();
             this.showGameScreen();
             this.listenToGameChanges();
         } catch (error) {
-            console.error('Fehler beim Beitreten:', error);
-            alert('Fehler beim Beitreten des Spiels!');
+            console.error('Join error:', error);
+            alert('Fehler beim Beitreten!');
         }
     }
 
@@ -284,26 +510,21 @@ class BingoGame {
     }
 
     checkForBingos() {
-        // Winning patterns
         const patterns = [
-            // Rows
             { name: 'Reihe 1', indices: [0,1,2,3,4] },
             { name: 'Reihe 2', indices: [5,6,7,8,9] },
             { name: 'Reihe 3', indices: [10,11,12,13,14] },
             { name: 'Reihe 4', indices: [15,16,17,18,19] },
             { name: 'Reihe 5', indices: [20,21,22,23,24] },
-            // Columns
             { name: 'Spalte 1', indices: [0,5,10,15,20] },
             { name: 'Spalte 2', indices: [1,6,11,16,21] },
             { name: 'Spalte 3', indices: [2,7,12,17,22] },
             { name: 'Spalte 4', indices: [3,8,13,18,23] },
             { name: 'Spalte 5', indices: [4,9,14,19,24] },
-            // Diagonals
             { name: 'Diagonale ↘', indices: [0,6,12,18,24] },
             { name: 'Diagonale ↙', indices: [4,8,12,16,20] }
         ];
         
-        // Check host bingos
         const hostMarked = new Set([...this.gameState.hostMarked, 12]);
         const hostBingos = [];
         for (const pattern of patterns) {
@@ -312,7 +533,6 @@ class BingoGame {
             }
         }
         
-        // Check guest bingos
         const guestMarked = new Set([...this.gameState.guestMarked, 12]);
         const guestBingos = [];
         for (const pattern of patterns) {
@@ -324,16 +544,31 @@ class BingoGame {
         this.gameState.hostBingos = hostBingos;
         this.gameState.guestBingos = guestBingos;
         
-        // Check for winner (first to get a bingo)
         if (hostBingos.length > 0 && this.gameState.status === 'playing') {
             this.gameState.winner = 'host';
             this.gameState.status = 'finished';
             this.saveGameState();
+            
+            // Update stats
+            if (this.isHost) {
+                this.updateUserStats(true);
+            } else {
+                this.updateUserStats(false);
+            }
+            
             this.showWinner();
         } else if (guestBingos.length > 0 && this.gameState.status === 'playing') {
             this.gameState.winner = 'guest';
             this.gameState.status = 'finished';
             this.saveGameState();
+            
+            // Update stats
+            if (!this.isHost) {
+                this.updateUserStats(true);
+            } else {
+                this.updateUserStats(false);
+            }
+            
             this.showWinner();
         } else {
             this.saveGameState();
@@ -375,7 +610,8 @@ class BingoGame {
             this.winnerText.innerHTML = `
                 🎉 Du hast gewonnen! 🎉<br>
                 <small style="font-size: 0.6em; color: #666; margin-top: 10px; display: block;">
-                    Deine Bingos: ${yourBingos.join(', ')}
+                    Deine Bingos: ${yourBingos.join(', ')}<br>
+                    Neue Statistik: ${this.userStats.wins} Siege
                 </small>
             `;
         } else {
@@ -394,7 +630,7 @@ class BingoGame {
         this.winnerModal.classList.add('hidden');
     }
 
-    updateGameDisplay() {
+    async updateGameDisplay() {
         if (!this.gameState) return;
         
         const yourBoard = this.isHost ? this.gameState.hostBoard : this.gameState.guestBoard;
@@ -405,12 +641,14 @@ class BingoGame {
         this.renderBoard(yourBoard, yourMarked, this.yourBoard, true);
         this.renderBoard(opponentBoard, opponentMarked, this.opponentBoard, false);
         
-        this.yourScore.textContent = yourMarked.length + 1; // +1 for FREE
+        this.yourScore.textContent = yourMarked.length + 1;
         this.opponentScore.textContent = opponentMarked.length + 1;
         
-        // Update player names
         this.yourName.textContent = this.username;
         this.opponentName.textContent = this.isHost ? this.gameState.guestName : this.gameState.hostName;
+        
+        this.yourWinsDisplay.textContent = this.isHost ? this.gameState.hostWins : this.gameState.guestWins;
+        this.opponentWinsDisplay.textContent = this.isHost ? this.gameState.guestWins : this.gameState.hostWins;
     }
 
     async saveGameState() {
@@ -420,7 +658,7 @@ class BingoGame {
             const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
             await window.firebaseSet(gameRef, this.gameState);
         } catch (error) {
-            console.error('Fehler beim Speichern:', error);
+            console.error('Save error:', error);
         }
     }
 
@@ -432,7 +670,7 @@ class BingoGame {
             const snapshot = await window.firebaseGet(gameRef);
             return snapshot.exists() ? snapshot.val() : null;
         } catch (error) {
-            console.error('Fehler beim Laden:', error);
+            console.error('Load error:', error);
             return null;
         }
     }
@@ -452,17 +690,14 @@ class BingoGame {
             const updatedState = snapshot.val();
             this.gameState = updatedState;
             
-            // Host wartet auf Gegner
             if (this.isHost && updatedState.status === 'playing' && this.gameScreen.classList.contains('hidden')) {
                 this.showGameScreen();
             }
             
-            // Update Display wenn im Spiel
             if (!this.gameScreen.classList.contains('hidden')) {
                 this.updateGameDisplay();
                 this.updateBingoDisplay();
                 
-                // Check for winner
                 if (updatedState.status === 'finished' && updatedState.winner) {
                     this.showWinner();
                 }
@@ -479,9 +714,8 @@ class BingoGame {
 
     copyGameId() {
         navigator.clipboard.writeText(this.gameId).then(() => {
-            alert('Spiel-ID kopiert! Teile sie mit deinem Gegner.');
+            alert('Spiel-ID kopiert!');
         }).catch(() => {
-            // Fallback für ältere Browser
             prompt('Kopiere diese Spiel-ID:', this.gameId);
         });
     }
@@ -492,7 +726,7 @@ class BingoGame {
                 const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
                 await window.firebaseRemove(gameRef);
             } catch (error) {
-                console.error('Fehler beim Löschen:', error);
+                console.error('Delete error:', error);
             }
         }
         this.stopListening();
@@ -518,6 +752,8 @@ class BingoGame {
     showSetupScreen() {
         this.currentUsername.textContent = this.username;
         this.currentUsernameJoin.textContent = this.username;
+        this.updateStatsDisplay();
+        
         this.loginScreen.classList.add('hidden');
         this.setupScreen.classList.remove('hidden');
         this.joinScreen.classList.add('hidden');
@@ -546,7 +782,6 @@ class BingoGame {
     }
 }
 
-// Initialize game when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new BingoGame();
 });

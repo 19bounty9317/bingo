@@ -196,9 +196,91 @@ h1 {
     padding: 10px;
     border-radius: 8px;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     font-weight: 600;
     color: #667eea;
+}
+
+.user-profile {
+    margin-bottom: 20px;
+}
+
+.user-stats {
+    display: flex;
+    justify-content: space-around;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.stat {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.stat-label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+.user-stats-small {
+    text-align: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-weight: 600;
+    color: #667eea;
+}
+
+.player-stats-game {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.tab-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.tab-btn:hover:not(.active) {
+    border-color: #667eea;
+}
+
+.tab-content {
+    display: block;
+}
+
+.tab-content.hidden {
+    display: none;
 }
 
 .info-text {
