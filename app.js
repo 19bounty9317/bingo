@@ -485,6 +485,8 @@ class BingoGame {
     }
 
     renderBoard(board, markedIndices, container, isYourBoard) {
+        if (!board || !container) return;
+        
         container.innerHTML = '';
         
         board.forEach((number, index) => {
@@ -492,11 +494,11 @@ class BingoGame {
             cell.className = 'bingo-cell';
             cell.textContent = number;
             
-            if (markedIndices.includes(index)) {
+            if (markedIndices && markedIndices.includes(index)) {
                 cell.classList.add(isYourBoard ? 'marked' : 'opponent-marked');
             }
             
-            if (isYourBoard && this.gameState.status === 'playing') {
+            if (isYourBoard && this.gameState && this.gameState.status === 'playing') {
                 cell.addEventListener('click', () => this.markCell(index));
             }
             
@@ -590,8 +592,10 @@ class BingoGame {
     }
 
     updateBingoDisplay() {
-        const yourBingos = this.isHost ? this.gameState.hostBingos : this.gameState.guestBingos;
-        const opponentBingos = this.isHost ? this.gameState.guestBingos : this.gameState.hostBingos;
+        if (!this.gameState) return;
+        
+        const yourBingos = this.isHost ? (this.gameState.hostBingos || []) : (this.gameState.guestBingos || []);
+        const opponentBingos = this.isHost ? (this.gameState.guestBingos || []) : (this.gameState.hostBingos || []);
         
         if (yourBingos.length > 0) {
             this.yourBingoStatus.textContent = `🎉 BINGO! (${yourBingos.join(', ')})`;
@@ -645,10 +649,18 @@ class BingoGame {
     async updateGameDisplay() {
         if (!this.gameState) return;
         
+        // Initialize arrays if they don't exist (for old games)
+        if (!this.gameState.hostBingos) this.gameState.hostBingos = [];
+        if (!this.gameState.guestBingos) this.gameState.guestBingos = [];
+        if (!this.gameState.hostMarked) this.gameState.hostMarked = [];
+        if (!this.gameState.guestMarked) this.gameState.guestMarked = [];
+        
         const yourBoard = this.isHost ? this.gameState.hostBoard : this.gameState.guestBoard;
         const opponentBoard = this.isHost ? this.gameState.guestBoard : this.gameState.hostBoard;
         const yourMarked = this.isHost ? this.gameState.hostMarked : this.gameState.guestMarked;
         const opponentMarked = this.isHost ? this.gameState.guestMarked : this.gameState.hostMarked;
+        
+        if (!yourBoard || !opponentBoard) return;
         
         this.renderBoard(yourBoard, yourMarked, this.yourBoard, true);
         this.renderBoard(opponentBoard, opponentMarked, this.opponentBoard, false);
@@ -659,8 +671,8 @@ class BingoGame {
         this.yourName.textContent = this.username;
         this.opponentName.textContent = this.isHost ? this.gameState.guestName : this.gameState.hostName;
         
-        this.yourWinsDisplay.textContent = this.isHost ? this.gameState.hostWins : this.gameState.guestWins;
-        this.opponentWinsDisplay.textContent = this.isHost ? this.gameState.guestWins : this.gameState.hostWins;
+        if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.isHost ? (this.gameState.hostWins || 0) : (this.gameState.guestWins || 0);
+        if (this.opponentWinsDisplay) this.opponentWinsDisplay.textContent = this.isHost ? (this.gameState.guestWins || 0) : (this.gameState.hostWins || 0);
     }
 
     async saveGameState() {
