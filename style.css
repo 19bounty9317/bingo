@@ -98,6 +98,22 @@ body.dark-mode .game-header {
     background: #1e1e2e;
 }
 
+body.dark-mode .player-name {
+    color: #ffd700;
+}
+
+body.dark-mode .player-score {
+    color: #ffd700;
+}
+
+body.dark-mode .board-container h3 {
+    color: #ffd700;
+}
+
+body.dark-mode .game-status {
+    color: #ffd700;
+}
+
 body.dark-mode .player-item {
     background: #2a2a3e;
     border-color: #3a3a4e;
