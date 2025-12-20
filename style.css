@@ -93,6 +93,18 @@ body.dark-mode .bingo-cell:hover {
     background: #3a3a4e;
 }
 
+body.dark-mode .bingo-cell.marked {
+    background: #28a745 !important;
+    color: white !important;
+    border-color: #28a745 !important;
+}
+
+body.dark-mode .bingo-cell.opponent-marked {
+    background: #dc3545 !important;
+    color: white !important;
+    border-color: #dc3545 !important;
+}
+
 body.dark-mode .board-container,
 body.dark-mode .game-header {
     background: #1e1e2e;
