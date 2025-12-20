@@ -165,9 +165,13 @@ class BingoGame {
     }
 
     async register() {
+        console.log('Register clicked');
         const username = this.registerUsername.value.trim();
         const password = this.registerPassword.value;
         const passwordConfirm = this.registerPasswordConfirm.value;
+        
+        console.log('Username:', username);
+        console.log('Firebase DB:', window.firebaseDb ? 'Ready' : 'Not ready');
         
         if (!username || username.length < 3) {
             alert('Benutzername muss mindestens 3 Zeichen lang sein!');
@@ -239,8 +243,12 @@ class BingoGame {
     }
 
     async login() {
+        console.log('Login clicked');
         const username = this.loginUsername.value.trim();
         const password = this.loginPassword.value;
+        
+        console.log('Username:', username);
+        console.log('Firebase DB:', window.firebaseDb ? 'Ready' : 'Not ready');
         
         if (!username || !password) {
             alert('Bitte Benutzername und Passwort eingeben!');
@@ -1043,6 +1051,8 @@ BingoGame.prototype.logout = async function() {
 // ===== DARK MODE =====
 BingoGame.prototype.initDarkMode = function() {
     const darkModeToggle = document.getElementById('darkModeToggle');
+    if (!darkModeToggle) return; // Safety check
+    
     const savedMode = localStorage.getItem('bingo_dark_mode');
     
     if (savedMode === 'true') {
@@ -1108,4 +1118,117 @@ BingoGame.prototype.setupAutoSave = function() {
             this.saveGameState();
         }
     }, 10000);
+};
+
+
+// ===== MY GAMES LIST =====
+BingoGame.prototype.myGamesListener = null;
+
+BingoGame.prototype.listenToMyGames = function() {
+    if (!window.firebaseDb || !this.userId) return;
+    
+    const gamesRef = window.firebaseRef(window.firebaseDb, 'games');
+    this.myGamesListener = window.firebaseOnValue(gamesRef, (snapshot) => {
+        if (!snapshot.exists()) {
+            this.renderMyGames([]);
+            return;
+        }
+        
+        const allGames = snapshot.val();
+        const myGames = [];
+        
+        // Filter games where user is host or guest
+        for (let gameId in allGames) {
+            const game = allGames[gameId];
+            if (game.hostUserId === this.userId || game.guestUserId === this.userId) {
+                myGames.push(game);
+            }
+        }
+        
+        // Sort by createdAt (newest first)
+        myGames.sort((a, b) => b.createdAt - a.createdAt);
+        
+        this.renderMyGames(myGames);
+    });
+};
+
+BingoGame.prototype.renderMyGames = function(games) {
+    const container = document.getElementById('myGamesList');
+    if (!container) return;
+    
+    if (games.length === 0) {
+        container.innerHTML = '<p class="loading-text">Keine aktiven Spiele</p>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    games.forEach(game => {
+        const gameDiv = document.createElement('div');
+        gameDiv.className = `game-item ${game.status}`;
+        
+        const isHost = game.hostUserId === this.userId;
+        const opponent = isHost ? game.guestName : game.hostName;
+        const opponentText = opponent || 'Warte auf Gegner...';
+        
+        let statusText = '';
+        let statusClass = '';
+        if (game.status === 'waiting') {
+            statusText = 'Wartet';
+            statusClass = 'waiting';
+        } else if (game.status === 'playing') {
+            statusText = 'Läuft';
+            statusClass = 'playing';
+        } else if (game.status === 'finished') {
+            const won = (isHost && game.winner === 'host') || (!isHost && game.winner === 'guest');
+            statusText = won ? 'Gewonnen' : 'Verloren';
+            statusClass = 'finished';
+        }
+        
+        gameDiv.innerHTML = `
+            <div class="game-info-item-full">
+                <div class="game-title">🎮 vs ${opponentText}</div>
+                <div class="game-details">
+                    Zahlen: ${game.settings.min}-${game.settings.max} | 
+                    ID: ${game.gameId}
+                </div>
+            </div>
+            <div class="game-status-badge ${statusClass}">${statusText}</div>
+        `;
+        
+        gameDiv.addEventListener('click', () => this.openGame(game));
+        
+        container.appendChild(gameDiv);
+    });
+};
+
+BingoGame.prototype.openGame = async function(game) {
+    this.gameId = game.gameId;
+    this.gameState = game;
+    this.isHost = game.hostUserId === this.userId;
+    
+    if (game.status === 'waiting') {
+        this.showWaitingScreen();
+    } else {
+        this.showGameScreen();
+    }
+    
+    this.listenToGameChanges();
+};
+
+// Update showSetupScreen to start listening to games
+const originalShowSetupScreen2 = BingoGame.prototype.showSetupScreen;
+BingoGame.prototype.showSetupScreen = function() {
+    originalShowSetupScreen2.call(this);
+    this.listenToMyGames();
+};
+
+// Update logout to stop games listener
+const originalLogout2 = BingoGame.prototype.logout;
+BingoGame.prototype.logout = async function() {
+    if (this.myGamesListener) {
+        this.myGamesListener();
+    }
+    
+    originalLogout2.call(this);
 };
