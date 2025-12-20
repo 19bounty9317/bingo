@@ -1,0 +1,6 @@
+# Optional: Wenn du deine Firebase Config privat halten willst
+# firebase-config.js
+
+# System Files
+.DS_Store
+Thumbs.db
