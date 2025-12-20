@@ -1066,11 +1066,12 @@ BingoGame.prototype.declineChallenge = async function() {
     this.pendingChallenge = null;
 };
 
-// Update showSetupScreen to start online presence
+// Update showSetupScreen to start online presence and listen to games
 const originalShowSetupScreen = BingoGame.prototype.showSetupScreen;
 BingoGame.prototype.showSetupScreen = function() {
     originalShowSetupScreen.call(this);
     this.startOnlinePresence();
+    this.listenToMyGames();
 };
 
 // Update logout to stop presence
@@ -1265,14 +1266,7 @@ BingoGame.prototype.openGame = async function(game) {
     this.listenToGameChanges();
 };
 
-// Update showSetupScreen to start listening to games
-const originalShowSetupScreen2 = BingoGame.prototype.showSetupScreen;
-BingoGame.prototype.showSetupScreen = function() {
-    originalShowSetupScreen2.call(this);
-    this.listenToMyGames();
-};
-
-// Update logout to stop games listener
+// Update logout to stop presence and games listener
 const originalLogout2 = BingoGame.prototype.logout;
 BingoGame.prototype.logout = async function() {
     if (this.myGamesListener) {
