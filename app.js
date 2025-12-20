@@ -1249,10 +1249,21 @@ BingoGame.prototype.renderMyGames = function(games) {
                     ID: ${game.gameId}
                 </div>
             </div>
-            <div class="game-status-badge ${statusClass}">${statusText}</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="game-status-badge ${statusClass}">${statusText}</div>
+                <button class="delete-game-btn" data-game-id="${game.gameId}" title="Spiel löschen">🗑️</button>
+            </div>
         `;
         
-        gameDiv.addEventListener('click', () => this.openGame(game));
+        // Click on game to open
+        gameDiv.querySelector('.game-info-item-full').addEventListener('click', () => this.openGame(game));
+        
+        // Click on delete button
+        const deleteBtn = gameDiv.querySelector('.delete-game-btn');
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent opening game
+            this.deleteGame(game.gameId);
+        });
         
         container.appendChild(gameDiv);
     });
@@ -1280,4 +1291,29 @@ BingoGame.prototype.logout = async function() {
     }
     
     originalLogout2.call(this);
+};
+
+
+// ===== DELETE GAME =====
+BingoGame.prototype.deleteGame = async function(gameId) {
+    if (!confirm('Spiel wirklich löschen?')) {
+        return;
+    }
+    
+    if (!window.firebaseDb) return;
+    
+    try {
+        const gameRef = window.firebaseRef(window.firebaseDb, `games/${gameId}`);
+        await window.firebaseRemove(gameRef);
+        
+        // If this is the current game, close modal
+        if (this.gameId === gameId) {
+            this.closeGameModal();
+        }
+        
+        console.log('Game deleted:', gameId);
+    } catch (error) {
+        console.error('Delete game error:', error);
+        alert('Fehler beim Löschen des Spiels!');
+    }
 };
