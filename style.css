@@ -378,6 +378,118 @@ h1 {
     display: none;
 }
 
+.divider {
+    margin: 30px 0;
+    text-align: center;
+    position: relative;
+}
+
+.divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #ddd;
+}
+
+.divider span {
+    background: white;
+    padding: 0 15px;
+    position: relative;
+    color: #999;
+    font-size: 14px;
+}
+
+.online-players {
+    max-height: 300px;
+    overflow-y: auto;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+}
+
+.player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 2px solid #ddd;
+    transition: all 0.3s;
+}
+
+.player-item:hover {
+    border-color: #667eea;
+    transform: translateX(5px);
+}
+
+.player-item.self {
+    background: #e8f0fe;
+    border-color: #667eea;
+}
+
+.player-info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.online-indicator {
+    width: 10px;
+    height: 10px;
+    background: #28a745;
+    border-radius: 50%;
+    animation: pulse-online 2s infinite;
+}
+
+@keyframes pulse-online {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.player-name-item {
+    font-weight: 600;
+    color: #333;
+}
+
+.player-stats-item {
+    font-size: 14px;
+    color: #666;
+}
+
+.challenge-btn {
+    padding: 8px 16px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.challenge-btn:hover {
+    background: #5568d3;
+    transform: scale(1.05);
+}
+
+.challenge-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .modal-content {
     background: white;
     padding: 40px;

@@ -73,6 +73,7 @@
                         </div>
                     </div>
                 </div>
+                
                 <h2>Spiel erstellen</h2>
                 <div class="form-group">
                     <label>Zahlenbereich:</label>
@@ -88,8 +89,18 @@
                         Doppelte Zahlen erlauben
                     </label>
                 </div>
-                <button id="createGameBtn" class="btn btn-primary">Spiel erstellen</button>
-                <button id="joinGameBtn" class="btn btn-secondary">Spiel beitreten</button>
+                <button id="createGameBtn" class="btn btn-primary">Spiel erstellen & warten</button>
+                <button id="joinGameBtn" class="btn btn-secondary">Spiel-ID eingeben</button>
+                
+                <div class="divider">
+                    <span>oder</span>
+                </div>
+                
+                <h3>🎮 Online Spieler</h3>
+                <div id="onlinePlayersList" class="online-players">
+                    <p class="loading-text">Lade Spieler...</p>
+                </div>
+                
                 <button id="logoutBtn" class="btn btn-secondary">Abmelden</button>
             </div>
         </div>
@@ -176,6 +187,18 @@
             <div class="modal-content">
                 <h2 id="winnerText"></h2>
                 <button id="closeModalBtn" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+        
+        <!-- Challenge Modal -->
+        <div id="challengeModal" class="modal hidden">
+            <div class="modal-content">
+                <h2>🎮 Herausforderung!</h2>
+                <p id="challengeText"></p>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button id="acceptChallengeBtn" class="btn btn-primary" style="flex: 1;">Annehmen</button>
+                    <button id="declineChallengeBtn" class="btn btn-danger" style="flex: 1;">Ablehnen</button>
+                </div>
             </div>
         </div>
     </div>

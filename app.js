@@ -785,3 +785,252 @@ class BingoGame {
 document.addEventListener('DOMContentLoaded', () => {
     new BingoGame();
 });
+
+
+// ===== ONLINE PLAYER SYSTEM =====
+
+BingoGame.prototype.onlineListener = null;
+BingoGame.prototype.challengeListener = null;
+BingoGame.prototype.onlinePlayers = {};
+BingoGame.prototype.pendingChallenge = null;
+
+BingoGame.prototype.startOnlinePresence = async function() {
+    if (!window.firebaseDb || !this.userId) return;
+    
+    const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
+    const presenceData = {
+        userId: this.userId,
+        username: this.username,
+        wins: this.userStats.wins,
+        lastSeen: Date.now()
+    };
+    
+    await window.firebaseSet(presenceRef, presenceData);
+    
+    // Update every 30 seconds
+    this.presenceInterval = setInterval(async () => {
+        await window.firebaseSet(presenceRef, { ...presenceData, lastSeen: Date.now() });
+    }, 30000);
+    
+    // Remove on disconnect
+    window.addEventListener('beforeunload', () => {
+        window.firebaseRemove(presenceRef);
+    });
+    
+    this.listenToOnlinePlayers();
+    this.listenToChallenges();
+};
+
+BingoGame.prototype.listenToOnlinePlayers = function() {
+    if (!window.firebaseDb) return;
+    
+    const onlineRef = window.firebaseRef(window.firebaseDb, 'online');
+    this.onlineListener = window.firebaseOnValue(onlineRef, (snapshot) => {
+        if (!snapshot.exists()) {
+            this.renderOnlinePlayers({});
+            return;
+        }
+        
+        const players = snapshot.val();
+        const now = Date.now();
+        const activePlayers = {};
+        
+        // Filter players active in last 2 minutes
+        for (let userId in players) {
+            if (now - players[userId].lastSeen < 120000) {
+                activePlayers[userId] = players[userId];
+            }
+        }
+        
+        this.onlinePlayers = activePlayers;
+        this.renderOnlinePlayers(activePlayers);
+    });
+};
+
+BingoGame.prototype.renderOnlinePlayers = function(players) {
+    const container = document.getElementById('onlinePlayersList');
+    if (!container) return;
+    
+    const playerCount = Object.keys(players).length;
+    
+    if (playerCount === 0 || (playerCount === 1 && players[this.userId])) {
+        container.innerHTML = '<p class="loading-text">Keine anderen Spieler online</p>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    for (let userId in players) {
+        if (userId === this.userId) continue;
+        
+        const player = players[userId];
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-item';
+        
+        playerDiv.innerHTML = `
+            <div class="player-info-item">
+                <div class="online-indicator"></div>
+                <div>
+                    <div class="player-name-item">${player.username}</div>
+                    <div class="player-stats-item">🏆 ${player.wins} Siege</div>
+                </div>
+            </div>
+            <button class="challenge-btn" data-user-id="${userId}">Herausfordern</button>
+        `;
+        
+        const btn = playerDiv.querySelector('.challenge-btn');
+        btn.addEventListener('click', () => this.challengePlayer(userId, player.username));
+        
+        container.appendChild(playerDiv);
+    }
+};
+
+BingoGame.prototype.challengePlayer = async function(targetUserId, targetUsername) {
+    if (!window.firebaseDb) return;
+    
+    const min = parseInt(this.minNumberInput.value);
+    const max = parseInt(this.maxNumberInput.value);
+    const allowDuplicates = this.allowDuplicatesInput.checked;
+    
+    if (min >= max) {
+        alert('Minimum muss kleiner als Maximum sein!');
+        return;
+    }
+    
+    this.gameId = this.generateId();
+    const numbers = this.generateBingoNumbers(min, max, allowDuplicates);
+    
+    const challengeData = {
+        challengeId: this.gameId,
+        fromUserId: this.userId,
+        fromUsername: this.username,
+        toUserId: targetUserId,
+        toUsername: targetUsername,
+        settings: { min, max, allowDuplicates },
+        boards: numbers,
+        status: 'pending',
+        createdAt: Date.now()
+    };
+    
+    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${this.gameId}`);
+    await window.firebaseSet(challengeRef, challengeData);
+    
+    alert(`Herausforderung an ${targetUsername} gesendet!`);
+};
+
+BingoGame.prototype.listenToChallenges = function() {
+    if (!window.firebaseDb || !this.userId) return;
+    
+    const challengesRef = window.firebaseRef(window.firebaseDb, 'challenges');
+    this.challengeListener = window.firebaseOnValue(challengesRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        
+        const challenges = snapshot.val();
+        
+        for (let challengeId in challenges) {
+            const challenge = challenges[challengeId];
+            
+            if (challenge.toUserId === this.userId && challenge.status === 'pending') {
+                this.showChallengeModal(challenge);
+                break;
+            }
+        }
+    });
+};
+
+BingoGame.prototype.showChallengeModal = function(challenge) {
+    this.pendingChallenge = challenge;
+    
+    const modal = document.getElementById('challengeModal');
+    const text = document.getElementById('challengeText');
+    
+    text.textContent = `${challenge.fromUsername} fordert dich heraus! (${challenge.settings.min}-${challenge.settings.max})`;
+    modal.classList.remove('hidden');
+    
+    const acceptBtn = document.getElementById('acceptChallengeBtn');
+    const declineBtn = document.getElementById('declineChallengeBtn');
+    
+    acceptBtn.onclick = () => this.acceptChallenge();
+    declineBtn.onclick = () => this.declineChallenge();
+};
+
+BingoGame.prototype.acceptChallenge = async function() {
+    if (!this.pendingChallenge || !window.firebaseDb) return;
+    
+    const challenge = this.pendingChallenge;
+    this.gameId = challenge.challengeId;
+    this.isHost = false;
+    
+    this.gameState = {
+        gameId: this.gameId,
+        hostId: this.generateId(),
+        hostUserId: challenge.fromUserId,
+        hostName: challenge.fromUsername,
+        hostWins: 0,
+        guestId: this.generateId(),
+        guestUserId: this.userId,
+        guestName: this.username,
+        guestWins: this.userStats.wins,
+        settings: challenge.settings,
+        hostBoard: challenge.boards.host,
+        guestBoard: challenge.boards.guest,
+        hostMarked: [],
+        guestMarked: [],
+        hostBingos: [],
+        guestBingos: [],
+        status: 'playing',
+        winner: null,
+        createdAt: Date.now()
+    };
+    
+    await this.saveGameState();
+    
+    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${challenge.challengeId}`);
+    await window.firebaseRemove(challengeRef);
+    
+    document.getElementById('challengeModal').classList.add('hidden');
+    this.pendingChallenge = null;
+    
+    this.showGameScreen();
+    this.listenToGameChanges();
+};
+
+BingoGame.prototype.declineChallenge = async function() {
+    if (!this.pendingChallenge || !window.firebaseDb) return;
+    
+    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${this.pendingChallenge.challengeId}`);
+    await window.firebaseRemove(challengeRef);
+    
+    document.getElementById('challengeModal').classList.add('hidden');
+    this.pendingChallenge = null;
+};
+
+// Update showSetupScreen to start online presence
+const originalShowSetupScreen = BingoGame.prototype.showSetupScreen;
+BingoGame.prototype.showSetupScreen = function() {
+    originalShowSetupScreen.call(this);
+    this.startOnlinePresence();
+};
+
+// Update logout to stop presence
+const originalLogout = BingoGame.prototype.logout;
+BingoGame.prototype.logout = async function() {
+    if (this.userId && window.firebaseDb) {
+        const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
+        await window.firebaseRemove(presenceRef);
+    }
+    
+    if (this.presenceInterval) {
+        clearInterval(this.presenceInterval);
+    }
+    
+    if (this.onlineListener) {
+        this.onlineListener();
+    }
+    
+    if (this.challengeListener) {
+        this.challengeListener();
+    }
+    
+    originalLogout.call(this);
+};
