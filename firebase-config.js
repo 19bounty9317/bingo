@@ -1,10 +1,10 @@
 // Firebase Konfiguration für Rocket League Bingo
-// WICHTIG: databaseURL muss für Realtime Database gesetzt sein!
+// Diese Config wird von index.html importiert
 
 export const firebaseConfig = {
   apiKey: "AIzaSyBGffa3OQOvZZgWkJxd_MxbWOAR49yflPc",
   authDomain: "rl-bingo-465a6.firebaseapp.com",
-  databaseURL: "https://rl-bingo-465a6-default-rtdb.firebaseio.com",  // ← WICHTIG!
+  databaseURL: "https://rl-bingo-465a6-default-rtdb.firebaseio.com",
   projectId: "rl-bingo-465a6",
   storageBucket: "rl-bingo-465a6.firebasestorage.app",
   messagingSenderId: "1066602059596",
