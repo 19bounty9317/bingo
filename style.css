@@ -12,6 +12,88 @@ body {
     justify-content: center;
     align-items: center;
     padding: 20px;
+    transition: background 0.3s, color 0.3s;
+}
+
+body.dark-mode {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #e0e0e0;
+}
+
+.header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.dark-mode-toggle {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    padding: 10px 15px;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.dark-mode-toggle:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+body.dark-mode .dark-mode-toggle {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .card {
+    background: #1e1e2e;
+    color: #e0e0e0;
+}
+
+body.dark-mode .form-group input {
+    background: #2a2a3e;
+    color: #e0e0e0;
+    border-color: #3a3a4e;
+}
+
+body.dark-mode .user-badge,
+body.dark-mode .user-stats,
+body.dark-mode .user-stats-small,
+body.dark-mode .game-info,
+body.dark-mode .online-players {
+    background: #2a2a3e;
+}
+
+body.dark-mode .bingo-cell {
+    background: #2a2a3e;
+    color: #e0e0e0;
+    border-color: #3a3a4e;
+}
+
+body.dark-mode .bingo-cell:hover {
+    background: #3a3a4e;
+}
+
+body.dark-mode .board-container,
+body.dark-mode .game-header {
+    background: #1e1e2e;
+}
+
+body.dark-mode .player-item {
+    background: #2a2a3e;
+    border-color: #3a3a4e;
+}
+
+body.dark-mode .tab-btn {
+    background: #2a2a3e;
+    color: #e0e0e0;
+    border-color: #3a3a4e;
+}
+
+body.dark-mode .modal-content {
+    background: #1e1e2e;
+    color: #e0e0e0;
 }
 
 .container {

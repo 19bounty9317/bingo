@@ -446,12 +446,8 @@ class BingoGame {
             const board = [];
             const used = new Set();
             
+            // Alle 25 Felder mit Zahlen füllen (kein FREE mehr!)
             for (let i = 0; i < 25; i++) {
-                if (i === 12) {
-                    board.push('FREE');
-                    continue;
-                }
-                
                 let num;
                 do {
                     num = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -478,13 +474,11 @@ class BingoGame {
             cell.className = 'bingo-cell';
             cell.textContent = number;
             
-            if (number === 'FREE') {
-                cell.classList.add('free');
-            } else if (markedIndices.includes(index)) {
+            if (markedIndices.includes(index)) {
                 cell.classList.add(isYourBoard ? 'marked' : 'opponent-marked');
             }
             
-            if (isYourBoard && number !== 'FREE' && this.gameState.status === 'playing') {
+            if (isYourBoard && this.gameState.status === 'playing') {
                 cell.addEventListener('click', () => this.markCell(index));
             }
             
@@ -525,7 +519,7 @@ class BingoGame {
             { name: 'Diagonale ↙', indices: [4,8,12,16,20] }
         ];
         
-        const hostMarked = new Set([...this.gameState.hostMarked, 12]);
+        const hostMarked = new Set(this.gameState.hostMarked);
         const hostBingos = [];
         for (const pattern of patterns) {
             if (pattern.indices.every(i => hostMarked.has(i))) {
@@ -533,7 +527,7 @@ class BingoGame {
             }
         }
         
-        const guestMarked = new Set([...this.gameState.guestMarked, 12]);
+        const guestMarked = new Set(this.gameState.guestMarked);
         const guestBingos = [];
         for (const pattern of patterns) {
             if (pattern.indices.every(i => guestMarked.has(i))) {
@@ -641,8 +635,8 @@ class BingoGame {
         this.renderBoard(yourBoard, yourMarked, this.yourBoard, true);
         this.renderBoard(opponentBoard, opponentMarked, this.opponentBoard, false);
         
-        this.yourScore.textContent = yourMarked.length + 1;
-        this.opponentScore.textContent = opponentMarked.length + 1;
+        this.yourScore.textContent = yourMarked.length;
+        this.opponentScore.textContent = opponentMarked.length;
         
         this.yourName.textContent = this.username;
         this.opponentName.textContent = this.isHost ? this.gameState.guestName : this.gameState.hostName;
@@ -1034,3 +1028,91 @@ BingoGame.prototype.logout = async function() {
     
     originalLogout.call(this);
 };
+
+
+// ===== DARK MODE =====
+BingoGame.prototype.initDarkMode = function() {
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const savedMode = localStorage.getItem('bingo_dark_mode');
+    
+    if (savedMode === 'true') {
+        document.body.classList.add('dark-mode');
+        darkModeToggle.textContent = '☀️';
+    }
+    
+    darkModeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        darkModeToggle.textContent = isDark ? '☀️' : '🌙';
+        localStorage.setItem('bingo_dark_mode', isDark);
+    });
+};
+
+// ===== DELETE ACCOUNT =====
+BingoGame.prototype.deleteAccount = async function() {
+    if (!confirm('Wirklich Account löschen? Alle Statistiken gehen verloren!')) {
+        return;
+    }
+    
+    if (!confirm('Bist du sicher? Dies kann nicht rückgängig gemacht werden!')) {
+        return;
+    }
+    
+    if (!window.firebaseDb || !this.userId) return;
+    
+    try {
+        // Remove user data
+        const userRef = window.firebaseRef(window.firebaseDb, `users/${this.userId}`);
+        await window.firebaseRemove(userRef);
+        
+        // Remove online presence
+        const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
+        await window.firebaseRemove(presenceRef);
+        
+        alert('Account erfolgreich gelöscht!');
+        this.logout();
+    } catch (error) {
+        console.error('Delete account error:', error);
+        alert('Fehler beim Löschen des Accounts!');
+    }
+};
+
+// ===== AUTO-SAVE ON CLOSE =====
+BingoGame.prototype.setupAutoSave = function() {
+    window.addEventListener('beforeunload', async (e) => {
+        if (this.gameState && this.gameState.status === 'playing') {
+            // Save current game state
+            await this.saveGameState();
+        }
+        
+        // Remove online presence
+        if (this.userId && window.firebaseDb) {
+            const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
+            await window.firebaseRemove(presenceRef);
+        }
+    });
+    
+    // Auto-save every 10 seconds during game
+    setInterval(() => {
+        if (this.gameState && this.gameState.status === 'playing') {
+            this.saveGameState();
+        }
+    }, 10000);
+};
+
+// Update constructor to initialize new features
+const originalConstructor = BingoGame;
+BingoGame = function() {
+    originalConstructor.call(this);
+    this.initDarkMode();
+    this.setupAutoSave();
+    
+    // Add delete account button listener
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => this.deleteAccount());
+    }
+};
+
+// Copy prototype
+BingoGame.prototype = originalConstructor.prototype;
