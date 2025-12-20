@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket League Bingo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Rocket League Bingo</h1>
+        
+        <!-- Setup Screen -->
+        <div id="setupScreen" class="screen">
+            <div class="card">
+                <h2>Spiel erstellen</h2>
+                <div class="form-group">
+                    <label>Zahlenbereich:</label>
+                    <div class="range-input">
+                        <input type="number" id="minNumber" value="1" min="1">
+                        <span>bis</span>
+                        <input type="number" id="maxNumber" value="75" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="allowDuplicates">
+                        Doppelte Zahlen erlauben
+                    </label>
+                </div>
+                <button id="createGameBtn" class="btn btn-primary">Spiel erstellen</button>
+                <button id="joinGameBtn" class="btn btn-secondary">Spiel beitreten</button>
+            </div>
+        </div>
+
+        <!-- Join Screen -->
+        <div id="joinScreen" class="screen hidden">
+            <div class="card">
+                <h2>Spiel beitreten</h2>
+                <div class="form-group">
+                    <label>Spiel-ID eingeben:</label>
+                    <input type="text" id="gameIdInput" placeholder="z.B. ABC123">
+                </div>
+                <button id="joinGameConfirmBtn" class="btn btn-primary">Beitreten</button>
+                <button id="backToSetupBtn" class="btn btn-secondary">Zurück</button>
+            </div>
+        </div>
+
+        <!-- Waiting Screen -->
+        <div id="waitingScreen" class="screen hidden">
+            <div class="card">
+                <h2>Warte auf Gegner...</h2>
+                <div class="game-info">
+                    <p><strong>Deine Spieler-ID:</strong> <span id="playerIdDisplay"></span></p>
+                    <p><strong>Spiel-ID:</strong> <span id="gameIdDisplay"></span></p>
+                </div>
+                <button id="copyGameIdBtn" class="btn btn-secondary">Spiel-ID kopieren</button>
+                <button id="cancelGameBtn" class="btn btn-danger">Abbrechen</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="screen hidden">
+            <div class="game-header">
+                <div class="player-info">
+                    <span>Du: <span id="yourScore">0</span>/25</span>
+                </div>
+                <div class="game-status">
+                    <span id="gameStatus">Spiel läuft</span>
+                </div>
+                <div class="player-info">
+                    <span>Gegner: <span id="opponentScore">0</span>/25</span>
+                </div>
+            </div>
+
+            <div class="bingo-boards">
+                <div class="board-container">
+                    <h3>Dein Spielfeld</h3>
+                    <div id="yourBoard" class="bingo-board"></div>
+                </div>
+                <div class="board-container">
+                    <h3>Gegner Spielfeld</h3>
+                    <div id="opponentBoard" class="bingo-board"></div>
+                </div>
+            </div>
+
+            <button id="newGameBtn" class="btn btn-secondary">Neues Spiel</button>
+        </div>
+
+        <!-- Winner Modal -->
+        <div id="winnerModal" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="winnerText"></h2>
+                <button id="closeModalBtn" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
