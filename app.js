@@ -1314,6 +1314,7 @@ BingoGame.prototype.renderMyGames = function(games) {
     
     if (games.length === 0) {
         container.innerHTML = '<p class="loading-text">Keine aktiven Spiele</p>';
+        this.updateTotalStats([]);
         return;
     }
     
@@ -1380,6 +1381,9 @@ BingoGame.prototype.renderMyGames = function(games) {
         
         container.appendChild(gameDiv);
     });
+    
+    // Update total statistics
+    this.updateTotalStats(games);
 };
 
 BingoGame.prototype.openGame = async function(game) {
@@ -1430,3 +1434,52 @@ BingoGame.prototype.deleteGame = async function(gameId) {
         alert('Fehler beim Löschen des Spiels!');
     }
 };
+
+// ===== TOTAL STATISTICS =====
+BingoGame.prototype.updateTotalStats = function(games) {
+    const patterns = [
+        { name: 'Reihe 1', indices: [0,1,2,3,4] },
+        { name: 'Reihe 2', indices: [5,6,7,8,9] },
+        { name: 'Reihe 3', indices: [10,11,12,13,14] },
+        { name: 'Reihe 4', indices: [15,16,17,18,19] },
+        { name: 'Reihe 5', indices: [20,21,22,23,24] },
+        { name: 'Spalte 1', indices: [0,5,10,15,20] },
+        { name: 'Spalte 2', indices: [1,6,11,16,21] },
+        { name: 'Spalte 3', indices: [2,7,12,17,22] },
+        { name: 'Spalte 4', indices: [3,8,13,18,23] },
+        { name: 'Spalte 5', indices: [4,9,14,19,24] },
+        { name: 'Diagonale ↘', indices: [0,6,12,18,24] },
+        { name: 'Diagonale ↙', indices: [4,8,12,16,20] }
+    ];
+    
+    let totalMarkedCells = 0;
+    let totalThreeInRow = 0;
+    let totalFourInRow = 0;
+    let totalBingos = 0;
+    
+    games.forEach(game => {
+        const isHost = game.hostUserId === this.userId;
+        const myMarked = isHost ? (game.hostMarked || []) : (game.guestMarked || []);
+        
+        totalMarkedCells += myMarked.length;
+        
+        patterns.forEach(pattern => {
+            const markedCount = pattern.indices.filter(i => myMarked.includes(i)).length;
+            if (markedCount === 3) totalThreeInRow++;
+            if (markedCount === 4) totalFourInRow++;
+            if (markedCount === 5) totalBingos++;
+        });
+    });
+    
+    // Update display
+    const totalMarkedCellsEl = document.getElementById('totalMarkedCells');
+    const totalThreeInRowEl = document.getElementById('totalThreeInRow');
+    const totalFourInRowEl = document.getElementById('totalFourInRow');
+    const totalBingosEl = document.getElementById('totalBingos');
+    
+    if (totalMarkedCellsEl) totalMarkedCellsEl.textContent = totalMarkedCells;
+    if (totalThreeInRowEl) totalThreeInRowEl.textContent = totalThreeInRow;
+    if (totalFourInRowEl) totalFourInRowEl.textContent = totalFourInRow;
+    if (totalBingosEl) totalBingosEl.textContent = totalBingos;
+};
+
