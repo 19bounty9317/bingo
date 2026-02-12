@@ -59,7 +59,7 @@
             <div class="card">
                 <div class="user-profile">
                     <div class="user-badge">
-                        <span>👤 <span id="currentUsername"></span></span>
+                        <span>👤 <span id="currentUsername"></span> | 👑 <span id="crownCount">0</span></span>
                     </div>
                     <div class="user-stats">
                         <div class="stat">
@@ -171,6 +171,7 @@
                     </div>
                     <div class="game-status">
                         <span id="gameStatus">Spiel läuft</span>
+                        <button id="showStatsBtn" class="stats-btn" title="Statistiken anzeigen">📊</button>
                     </div>
                     <div class="player-info">
                         <div class="player-name" id="opponentName">Gegner</div>
@@ -213,6 +214,59 @@
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button id="acceptChallengeBtn" class="btn btn-primary" style="flex: 1;">Annehmen</button>
                     <button id="declineChallengeBtn" class="btn btn-danger" style="flex: 1;">Ablehnen</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistics Modal -->
+        <div id="statsModal" class="modal hidden">
+            <div class="modal-content stats-modal-content">
+                <button id="closeStatsBtn" class="close-game-btn">✕</button>
+                <h2>📊 Spielstatistiken</h2>
+                <div id="statsContent" class="stats-content">
+                    <div class="stats-section">
+                        <h3>Aktuelles Spiel</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Markierte Felder</span>
+                                <span class="stat-value" id="statsMarkedCells">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">3er-Reihen</span>
+                                <span class="stat-value" id="statsThreeInRow">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">4er-Reihen</span>
+                                <span class="stat-value" id="statsFourInRow">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Bingos</span>
+                                <span class="stat-value" id="statsBingos">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-section">
+                        <h3>Gegner</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Markierte Felder</span>
+                                <span class="stat-value" id="statsOpponentMarkedCells">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">3er-Reihen</span>
+                                <span class="stat-value" id="statsOpponentThreeInRow">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">4er-Reihen</span>
+                                <span class="stat-value" id="statsOpponentFourInRow">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Bingos</span>
+                                <span class="stat-value" id="statsOpponentBingos">0</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

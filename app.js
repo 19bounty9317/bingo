@@ -65,6 +65,14 @@ class BingoGame {
             this.closeGameBtn.addEventListener('click', () => this.closeGameModal());
         }
         
+        if (this.showStatsBtn) {
+            this.showStatsBtn.addEventListener('click', () => this.showStats());
+        }
+        
+        if (this.closeStatsBtn) {
+            this.closeStatsBtn.addEventListener('click', () => this.closeStats());
+        }
+        
         // Login Inputs
         this.loginUsername = document.getElementById('loginUsername');
         this.loginPassword = document.getElementById('loginPassword');
@@ -85,6 +93,7 @@ class BingoGame {
         this.lossesCount = document.getElementById('lossesCount');
         this.totalGamesCount = document.getElementById('totalGamesCount');
         this.winsCountJoin = document.getElementById('winsCountJoin');
+        this.crownCount = document.getElementById('crownCount');
         this.playerNameDisplay = document.getElementById('playerNameDisplay');
         this.gameIdDisplay = document.getElementById('gameIdDisplay');
         this.yourName = document.getElementById('yourName');
@@ -100,6 +109,11 @@ class BingoGame {
         this.opponentBoard = document.getElementById('opponentBoard');
         this.winnerModal = document.getElementById('winnerModal');
         this.winnerText = document.getElementById('winnerText');
+        
+        // Stats Modal
+        this.statsModal = document.getElementById('statsModal');
+        this.showStatsBtn = document.getElementById('showStatsBtn');
+        this.closeStatsBtn = document.getElementById('closeStatsBtn');
     }
 
     attachEventListeners() {
@@ -370,6 +384,7 @@ class BingoGame {
         if (this.totalGamesCount) this.totalGamesCount.textContent = this.userStats.totalGames;
         if (this.winsCountJoin) this.winsCountJoin.textContent = this.userStats.wins;
         if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.userStats.wins;
+        if (this.crownCount) this.crownCount.textContent = this.userStats.wins;
     }
 
     logout() {
@@ -480,15 +495,31 @@ class BingoGame {
         const generateBoard = () => {
             const board = [];
             const used = new Set();
+            const range = max - min + 1;
+            
+            // Check if we have enough numbers when duplicates are not allowed
+            if (!allowDuplicates && range < 25) {
+                alert(`Warnung: Zahlenbereich zu klein! Benötigt mindestens 25 verschiedene Zahlen. Doppelte werden automatisch erlaubt.`);
+                allowDuplicates = true;
+            }
             
             // Alle 25 Felder mit Zahlen füllen (kein FREE mehr!)
             for (let i = 0; i < 25; i++) {
                 let num;
+                let attempts = 0;
                 do {
-                    num = Math.floor(Math.random() * (max - min + 1)) + min;
+                    num = Math.floor(Math.random() * range) + min;
+                    attempts++;
+                    // Prevent infinite loop if range is too small
+                    if (attempts > 1000) {
+                        console.error('Could not generate unique numbers, allowing duplicates');
+                        break;
+                    }
                 } while (!allowDuplicates && used.has(num));
                 
-                used.add(num);
+                if (!allowDuplicates) {
+                    used.add(num);
+                }
                 board.push(num);
             }
             
@@ -852,6 +883,69 @@ class BingoGame {
         this.stopListening();
         this.gameId = null;
         this.gameState = null;
+    }
+    
+    showStats() {
+        if (!this.gameState) return;
+        
+        const patterns = [
+            { name: 'Reihe 1', indices: [0,1,2,3,4] },
+            { name: 'Reihe 2', indices: [5,6,7,8,9] },
+            { name: 'Reihe 3', indices: [10,11,12,13,14] },
+            { name: 'Reihe 4', indices: [15,16,17,18,19] },
+            { name: 'Reihe 5', indices: [20,21,22,23,24] },
+            { name: 'Spalte 1', indices: [0,5,10,15,20] },
+            { name: 'Spalte 2', indices: [1,6,11,16,21] },
+            { name: 'Spalte 3', indices: [2,7,12,17,22] },
+            { name: 'Spalte 4', indices: [3,8,13,18,23] },
+            { name: 'Spalte 5', indices: [4,9,14,19,24] },
+            { name: 'Diagonale ↘', indices: [0,6,12,18,24] },
+            { name: 'Diagonale ↙', indices: [4,8,12,16,20] }
+        ];
+        
+        const yourMarked = this.isHost ? this.gameState.hostMarked : this.gameState.guestMarked;
+        const opponentMarked = this.isHost ? this.gameState.guestMarked : this.gameState.hostMarked;
+        
+        // Calculate your stats
+        let yourThreeInRow = 0;
+        let yourFourInRow = 0;
+        let yourBingos = 0;
+        
+        patterns.forEach(pattern => {
+            const markedCount = pattern.indices.filter(i => yourMarked.includes(i)).length;
+            if (markedCount === 3) yourThreeInRow++;
+            if (markedCount === 4) yourFourInRow++;
+            if (markedCount === 5) yourBingos++;
+        });
+        
+        // Calculate opponent stats
+        let opponentThreeInRow = 0;
+        let opponentFourInRow = 0;
+        let opponentBingos = 0;
+        
+        patterns.forEach(pattern => {
+            const markedCount = pattern.indices.filter(i => opponentMarked.includes(i)).length;
+            if (markedCount === 3) opponentThreeInRow++;
+            if (markedCount === 4) opponentFourInRow++;
+            if (markedCount === 5) opponentBingos++;
+        });
+        
+        // Update display
+        document.getElementById('statsMarkedCells').textContent = yourMarked.length;
+        document.getElementById('statsThreeInRow').textContent = yourThreeInRow;
+        document.getElementById('statsFourInRow').textContent = yourFourInRow;
+        document.getElementById('statsBingos').textContent = yourBingos;
+        
+        document.getElementById('statsOpponentMarkedCells').textContent = opponentMarked.length;
+        document.getElementById('statsOpponentThreeInRow').textContent = opponentThreeInRow;
+        document.getElementById('statsOpponentFourInRow').textContent = opponentFourInRow;
+        document.getElementById('statsOpponentBingos').textContent = opponentBingos;
+        
+        this.statsModal.classList.remove('hidden');
+    }
+    
+    closeStats() {
+        this.statsModal.classList.add('hidden');
     }
 }
 
@@ -1226,30 +1320,43 @@ BingoGame.prototype.renderMyGames = function(games) {
     container.innerHTML = '';
     
     games.forEach(game => {
-        const gameDiv = document.createElement('div');
-        gameDiv.className = `game-item ${game.status}`;
-        
         const isHost = game.hostUserId === this.userId;
         const opponent = isHost ? game.guestName : game.hostName;
         const opponentText = opponent || 'Warte auf Gegner...';
         
         let statusText = '';
         let statusClass = '';
+        let gameClass = '';
+        let crownIcon = '';
+        
         if (game.status === 'waiting') {
             statusText = 'Wartet';
             statusClass = 'waiting';
+            gameClass = 'waiting';
         } else if (game.status === 'playing') {
             statusText = 'Läuft';
             statusClass = 'playing';
+            gameClass = 'playing';
         } else if (game.status === 'finished') {
             const won = (isHost && game.winner === 'host') || (!isHost && game.winner === 'guest');
-            statusText = won ? 'Gewonnen' : 'Verloren';
-            statusClass = 'finished';
+            if (won) {
+                statusText = 'Gewonnen';
+                statusClass = 'won';
+                gameClass = 'won';
+                crownIcon = '👑 ';
+            } else {
+                statusText = 'Verloren';
+                statusClass = 'lost';
+                gameClass = 'lost';
+            }
         }
+        
+        const gameDiv = document.createElement('div');
+        gameDiv.className = `game-item ${gameClass}`;
         
         gameDiv.innerHTML = `
             <div class="game-info-item-full">
-                <div class="game-title">🎮 vs ${opponentText}</div>
+                <div class="game-title">${crownIcon}🎮 vs ${opponentText}</div>
                 <div class="game-details">
                     Zahlen: ${game.settings.min}-${game.settings.max} | 
                     ID: ${game.gameId}

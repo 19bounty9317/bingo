@@ -713,11 +713,16 @@ body.dark-mode .game-modal-content {
 }
 
 .game-item.playing {
+    border-color: #ff8c00;
+    background: #fff4e6;
+}
+
+.game-item.won {
     border-color: #28a745;
     background: #e8f5e9;
 }
 
-.game-item.finished {
+.game-item.lost {
     border-color: #dc3545;
     background: #fce8e8;
 }
@@ -751,11 +756,16 @@ body.dark-mode .game-modal-content {
 }
 
 .game-status-badge.playing {
+    background: #ff8c00;
+    color: white;
+}
+
+.game-status-badge.won {
     background: #28a745;
     color: white;
 }
 
-.game-status-badge.finished {
+.game-status-badge.lost {
     background: #dc3545;
     color: white;
 }
@@ -774,10 +784,14 @@ body.dark-mode .game-item.waiting {
 }
 
 body.dark-mode .game-item.playing {
+    background: #2a2416;
+}
+
+body.dark-mode .game-item.won {
     background: #1e2a1e;
 }
 
-body.dark-mode .game-item.finished {
+body.dark-mode .game-item.lost {
     background: #2a1e1e;
 }
 
@@ -834,4 +848,105 @@ body.dark-mode .game-item.finished {
     h1 {
         font-size: 1.8em;
     }
+}
+
+
+/* Statistics Modal */
+.stats-modal-content {
+    max-width: 800px;
+    width: 90vw;
+    position: relative;
+}
+
+.stats-content {
+    margin-top: 20px;
+}
+
+.stats-section {
+    margin-bottom: 30px;
+}
+
+.stats-section h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.3em;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.stat-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border: 2px solid #ddd;
+}
+
+.stat-item .stat-label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.stat-item .stat-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.stats-btn {
+    background: rgba(102, 126, 234, 0.2);
+    border: 2px solid #667eea;
+    color: #667eea;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 10px;
+}
+
+.stats-btn:hover {
+    background: #667eea;
+    color: white;
+    transform: scale(1.05);
+}
+
+body.dark-mode .stats-modal-content {
+    background: #1e1e2e;
+    color: #e0e0e0;
+}
+
+body.dark-mode .stats-section h3 {
+    color: #ffd700;
+}
+
+body.dark-mode .stat-item {
+    background: #2a2a3e;
+    border-color: #3a3a4e;
+}
+
+body.dark-mode .stat-item .stat-label {
+    color: #999;
+}
+
+body.dark-mode .stat-item .stat-value {
+    color: #ffd700;
+}
+
+body.dark-mode .stats-btn {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+body.dark-mode .stats-btn:hover {
+    background: #ffd700;
+    color: #1e1e2e;
 }
