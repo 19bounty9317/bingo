@@ -492,16 +492,18 @@ class BingoGame {
     }
 
     generateBingoNumbers(min, max, allowDuplicates) {
+        const range = max - min + 1;
+        
+        // Check if we have enough numbers when duplicates are not allowed
+        if (!allowDuplicates && range < 50) {
+            alert(`Warnung: Zahlenbereich zu klein! Benötigt mindestens 50 verschiedene Zahlen für 2 Spieler ohne Duplikate. Doppelte werden automatisch erlaubt.`);
+            allowDuplicates = true;
+        }
+        
+        const globalUsed = new Set(); // Shared between both boards
+        
         const generateBoard = () => {
             const board = [];
-            const used = new Set();
-            const range = max - min + 1;
-            
-            // Check if we have enough numbers when duplicates are not allowed
-            if (!allowDuplicates && range < 25) {
-                alert(`Warnung: Zahlenbereich zu klein! Benötigt mindestens 25 verschiedene Zahlen. Doppelte werden automatisch erlaubt.`);
-                allowDuplicates = true;
-            }
             
             // Alle 25 Felder mit Zahlen füllen (kein FREE mehr!)
             for (let i = 0; i < 25; i++) {
@@ -515,10 +517,10 @@ class BingoGame {
                         console.error('Could not generate unique numbers, allowing duplicates');
                         break;
                     }
-                } while (!allowDuplicates && used.has(num));
+                } while (!allowDuplicates && globalUsed.has(num));
                 
                 if (!allowDuplicates) {
-                    used.add(num);
+                    globalUsed.add(num);
                 }
                 board.push(num);
             }
