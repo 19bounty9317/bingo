@@ -20,6 +20,7 @@
                 <div class="tabs">
                     <button class="tab-btn active" id="loginTab">Anmelden</button>
                     <button class="tab-btn" id="registerTab">Registrieren</button>
+                    <button class="tab-btn" id="resetTab">Passwort vergessen</button>
                 </div>
                 
                 <!-- Login Form -->
@@ -49,7 +50,32 @@
                         <label>Passwort wiederholen:</label>
                         <input type="password" id="registerPasswordConfirm" placeholder="Passwort bestätigen">
                     </div>
+                    <div class="form-group">
+                        <label>Sicherheitsfrage: Was ist dein Lieblingstier?</label>
+                        <input type="text" id="registerSecurityAnswer" placeholder="Für Passwort-Reset">
+                    </div>
                     <button id="registerBtn" class="btn btn-primary">Registrieren</button>
+                </div>
+                
+                <!-- Reset Password Form -->
+                <div id="resetForm" class="tab-content hidden">
+                    <div class="form-group">
+                        <label>Benutzername:</label>
+                        <input type="text" id="resetUsername" placeholder="Dein Benutzername">
+                    </div>
+                    <div class="form-group">
+                        <label>Sicherheitsfrage: Was ist dein Lieblingstier?</label>
+                        <input type="text" id="resetSecurityAnswer" placeholder="Deine Antwort">
+                    </div>
+                    <div class="form-group">
+                        <label>Neues Passwort:</label>
+                        <input type="password" id="resetNewPassword" placeholder="Min. 6 Zeichen">
+                    </div>
+                    <div class="form-group">
+                        <label>Neues Passwort wiederholen:</label>
+                        <input type="password" id="resetNewPasswordConfirm" placeholder="Passwort bestätigen">
+                    </div>
+                    <button id="resetPasswordBtn" class="btn btn-primary">Passwort zurücksetzen</button>
                 </div>
             </div>
         </div>

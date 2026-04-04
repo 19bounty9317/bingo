@@ -44,12 +44,15 @@ class BingoGame {
         // Tabs
         this.loginTab = document.getElementById('loginTab');
         this.registerTab = document.getElementById('registerTab');
+        this.resetTab = document.getElementById('resetTab');
         this.loginForm = document.getElementById('loginForm');
         this.registerForm = document.getElementById('registerForm');
+        this.resetForm = document.getElementById('resetForm');
         
         // Buttons
         this.loginBtn = document.getElementById('loginBtn');
         this.registerBtn = document.getElementById('registerBtn');
+        this.resetPasswordBtn = document.getElementById('resetPasswordBtn');
         this.logoutBtn = document.getElementById('logoutBtn');
         this.deleteAccountBtn = document.getElementById('deleteAccountBtn');
         this.createGameBtn = document.getElementById('createGameBtn');
@@ -79,6 +82,11 @@ class BingoGame {
         this.registerUsername = document.getElementById('registerUsername');
         this.registerPassword = document.getElementById('registerPassword');
         this.registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
+        this.registerSecurityAnswer = document.getElementById('registerSecurityAnswer');
+        this.resetUsername = document.getElementById('resetUsername');
+        this.resetSecurityAnswer = document.getElementById('resetSecurityAnswer');
+        this.resetNewPassword = document.getElementById('resetNewPassword');
+        this.resetNewPasswordConfirm = document.getElementById('resetNewPasswordConfirm');
         
         // Game Inputs
         this.minNumberInput = document.getElementById('minNumber');
@@ -120,10 +128,12 @@ class BingoGame {
         // Tabs
         this.loginTab.addEventListener('click', () => this.showLoginForm());
         this.registerTab.addEventListener('click', () => this.showRegisterForm());
+        this.resetTab.addEventListener('click', () => this.showResetForm());
         
         // Auth
         this.loginBtn.addEventListener('click', () => this.login());
         this.registerBtn.addEventListener('click', () => this.register());
+        this.resetPasswordBtn.addEventListener('click', () => this.resetPassword());
         this.logoutBtn.addEventListener('click', () => this.logout());
         if (this.deleteAccountBtn) {
             this.deleteAccountBtn.addEventListener('click', () => this.deleteAccount());
@@ -150,6 +160,11 @@ class BingoGame {
                 if (e.key === 'Enter') this.register();
             });
         }
+        if (this.resetNewPasswordConfirm) {
+            this.resetNewPasswordConfirm.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.resetPassword();
+            });
+        }
         if (this.gameIdInput) {
             this.gameIdInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.joinGame();
@@ -160,15 +175,28 @@ class BingoGame {
     showLoginForm() {
         this.loginTab.classList.add('active');
         this.registerTab.classList.remove('active');
+        this.resetTab.classList.remove('active');
         this.loginForm.classList.remove('hidden');
         this.registerForm.classList.add('hidden');
+        this.resetForm.classList.add('hidden');
     }
 
     showRegisterForm() {
         this.registerTab.classList.add('active');
         this.loginTab.classList.remove('active');
+        this.resetTab.classList.remove('active');
         this.registerForm.classList.remove('hidden');
         this.loginForm.classList.add('hidden');
+        this.resetForm.classList.add('hidden');
+    }
+    
+    showResetForm() {
+        this.resetTab.classList.add('active');
+        this.loginTab.classList.remove('active');
+        this.registerTab.classList.remove('active');
+        this.resetForm.classList.remove('hidden');
+        this.loginForm.classList.add('hidden');
+        this.registerForm.classList.add('hidden');
     }
 
     async checkLogin() {
@@ -200,6 +228,7 @@ class BingoGame {
         const username = this.registerUsername.value.trim();
         const password = this.registerPassword.value;
         const passwordConfirm = this.registerPasswordConfirm.value;
+        const securityAnswer = this.registerSecurityAnswer.value.trim().toLowerCase();
         
         console.log('Username:', username);
         console.log('Firebase DB:', window.firebaseDb ? 'Ready' : 'Not ready');
@@ -216,6 +245,11 @@ class BingoGame {
         
         if (password !== passwordConfirm) {
             alert('Passwörter stimmen nicht überein!');
+            return;
+        }
+        
+        if (!securityAnswer || securityAnswer.length < 2) {
+            alert('Bitte Sicherheitsfrage beantworten (für Passwort-Reset)!');
             return;
         }
 
@@ -242,11 +276,13 @@ class BingoGame {
             // Create user
             this.userId = this.generateId();
             const hashedPassword = await this.hashPassword(password);
+            const hashedSecurityAnswer = await this.hashPassword(securityAnswer);
             
             const userData = {
                 userId: this.userId,
                 username: username,
                 password: hashedPassword,
+                securityAnswer: hashedSecurityAnswer,
                 stats: {
                     wins: 0,
                     losses: 0,
@@ -335,6 +371,74 @@ class BingoGame {
             alert('Fehler beim Anmelden!');
         }
     }
+    
+    async resetPassword() {
+        const username = this.resetUsername.value.trim();
+        const newPassword = this.resetNewPassword.value;
+        const newPasswordConfirm = this.resetNewPasswordConfirm.value;
+        
+        if (!username || username.length < 3) {
+            alert('Bitte gültigen Benutzernamen eingeben!');
+            return;
+        }
+        
+        if (!newPassword || newPassword.length < 6) {
+            alert('Neues Passwort muss mindestens 6 Zeichen lang sein!');
+            return;
+        }
+        
+        if (newPassword !== newPasswordConfirm) {
+            alert('Passwörter stimmen nicht überein!');
+            return;
+        }
+
+        if (!window.firebaseDb) {
+            alert('Firebase wird geladen, bitte warte...');
+            return;
+        }
+
+        try {
+            const usersRef = window.firebaseRef(window.firebaseDb, 'users');
+            const snapshot = await window.firebaseGet(usersRef);
+            
+            if (!snapshot.exists()) {
+                alert('Benutzername nicht gefunden!');
+                return;
+            }
+
+            const users = snapshot.val();
+            let foundUserId = null;
+            
+            for (let userId in users) {
+                if (users[userId].username.toLowerCase() === username.toLowerCase()) {
+                    foundUserId = userId;
+                    break;
+                }
+            }
+
+            if (!foundUserId) {
+                alert('Benutzername nicht gefunden!');
+                return;
+            }
+
+            // Update password
+            const hashedPassword = await this.hashPassword(newPassword);
+            const userPasswordRef = window.firebaseRef(window.firebaseDb, `users/${foundUserId}/password`);
+            await window.firebaseSet(userPasswordRef, hashedPassword);
+
+            alert('✅ Passwort erfolgreich zurückgesetzt! Du kannst dich jetzt anmelden.');
+            this.showLoginForm();
+            
+            // Clear form
+            this.resetUsername.value = '';
+            this.resetNewPassword.value = '';
+            this.resetNewPasswordConfirm.value = '';
+            
+        } catch (error) {
+            console.error('Reset password error:', error);
+            alert('Fehler beim Zurücksetzen des Passworts!');
+        }
+    }
 
     async hashPassword(password) {
         // Simple hash for demo - in production use proper encryption!
@@ -343,6 +447,82 @@ class BingoGame {
         const hashBuffer = await crypto.subtle.digest('SHA-256', data);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    
+    async resetPassword() {
+        const username = this.resetUsername.value.trim();
+        const securityAnswer = this.resetSecurityAnswer.value.trim().toLowerCase();
+        const newPassword = this.resetNewPassword.value;
+        const newPasswordConfirm = this.resetNewPasswordConfirm.value;
+        
+        if (!username) {
+            alert('Bitte Benutzername eingeben!');
+            return;
+        }
+        
+        if (!securityAnswer) {
+            alert('Bitte Sicherheitsfrage beantworten!');
+            return;
+        }
+        
+        if (!newPassword || newPassword.length < 6) {
+            alert('Neues Passwort muss mindestens 6 Zeichen lang sein!');
+            return;
+        }
+        
+        if (newPassword !== newPasswordConfirm) {
+            alert('Passwörter stimmen nicht überein!');
+            return;
+        }
+        
+        if (!window.firebaseDb) {
+            alert('Firebase wird geladen, bitte warte...');
+            return;
+        }
+        
+        try {
+            const usersRef = window.firebaseRef(window.firebaseDb, 'users');
+            const snapshot = await window.firebaseGet(usersRef);
+            
+            if (!snapshot.exists()) {
+                alert('Benutzername nicht gefunden!');
+                return;
+            }
+            
+            const users = snapshot.val();
+            let foundUser = null;
+            
+            for (let userId in users) {
+                if (users[userId].username.toLowerCase() === username.toLowerCase()) {
+                    foundUser = { userId, ...users[userId] };
+                    break;
+                }
+            }
+            
+            if (!foundUser) {
+                alert('Benutzername nicht gefunden!');
+                return;
+            }
+            
+            // Check security answer
+            const hashedSecurityAnswer = await this.hashPassword(securityAnswer);
+            if (hashedSecurityAnswer !== foundUser.securityAnswer) {
+                alert('Sicherheitsantwort ist falsch!');
+                return;
+            }
+            
+            // Update password
+            const hashedNewPassword = await this.hashPassword(newPassword);
+            const userRef = window.firebaseRef(window.firebaseDb, `users/${foundUser.userId}/password`);
+            await window.firebaseSet(userRef, hashedNewPassword);
+            
+            alert('✅ Passwort erfolgreich zurückgesetzt! Du kannst dich jetzt anmelden.');
+            this.showLoginForm();
+            
+        } catch (error) {
+            console.error('Reset password error:', error);
+            alert('Fehler beim Zurücksetzen des Passworts!');
+        }
     }
 
     async loadUser(userId) {
