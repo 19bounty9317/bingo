@@ -460,8 +460,8 @@ class BingoGame {
             return;
         }
         
-        if (!securityAnswer) {
-            alert('Bitte Sicherheitsfrage beantworten!');
+        if (!securityAnswer && !username) {
+            alert('Bitte Sicherheitsfrage beantworten (oder leer lassen für alte Accounts)!');
             return;
         }
         
@@ -504,11 +504,24 @@ class BingoGame {
                 return;
             }
             
-            // Check security answer
-            const hashedSecurityAnswer = await this.hashPassword(securityAnswer);
-            if (hashedSecurityAnswer !== foundUser.securityAnswer) {
-                alert('Sicherheitsantwort ist falsch!');
-                return;
+            // Check if user has security question (new accounts)
+            if (foundUser.securityAnswer) {
+                if (!securityAnswer) {
+                    alert('Bitte Sicherheitsfrage beantworten!');
+                    return;
+                }
+                
+                // Check security answer
+                const hashedSecurityAnswer = await this.hashPassword(securityAnswer);
+                if (hashedSecurityAnswer !== foundUser.securityAnswer) {
+                    alert('Sicherheitsantwort ist falsch!');
+                    return;
+                }
+            } else {
+                // Old account without security question - allow reset with warning
+                if (!confirm('⚠️ Dieser Account hat keine Sicherheitsfrage. Passwort wirklich zurücksetzen?')) {
+                    return;
+                }
             }
             
             // Update password
