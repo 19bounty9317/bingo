@@ -84,7 +84,7 @@ class BingoGame {
         this.registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
         this.registerSecurityAnswer = document.getElementById('registerSecurityAnswer');
         this.resetUsername = document.getElementById('resetUsername');
-        this.resetSecurityAnswer = document.getElementById('resetSecurityAnswer');
+        this.resetCode = document.getElementById('resetCode');
         this.resetNewPassword = document.getElementById('resetNewPassword');
         this.resetNewPasswordConfirm = document.getElementById('resetNewPasswordConfirm');
         
@@ -374,11 +374,17 @@ class BingoGame {
     
     async resetPassword() {
         const username = this.resetUsername.value.trim();
+        const resetCode = this.resetCode.value.trim().toUpperCase();
         const newPassword = this.resetNewPassword.value;
         const newPasswordConfirm = this.resetNewPasswordConfirm.value;
         
         if (!username || username.length < 3) {
             alert('Bitte gültigen Benutzernamen eingeben!');
+            return;
+        }
+        
+        if (!resetCode || resetCode.length !== 6) {
+            alert('Bitte gültigen 6-stelligen Reset-Code eingeben!');
             return;
         }
         
@@ -398,39 +404,51 @@ class BingoGame {
         }
 
         try {
-            const usersRef = window.firebaseRef(window.firebaseDb, 'users');
-            const snapshot = await window.firebaseGet(usersRef);
+            // Check reset code
+            const resetCodeRef = window.firebaseRef(window.firebaseDb, `resetCodes/${resetCode}`);
+            const codeSnapshot = await window.firebaseGet(resetCodeRef);
             
-            if (!snapshot.exists()) {
-                alert('Benutzername nicht gefunden!');
+            if (!codeSnapshot.exists()) {
+                alert('Ungültiger Reset-Code!');
                 return;
             }
-
-            const users = snapshot.val();
-            let foundUserId = null;
             
-            for (let userId in users) {
-                if (users[userId].username.toLowerCase() === username.toLowerCase()) {
-                    foundUserId = userId;
-                    break;
-                }
-            }
-
-            if (!foundUserId) {
-                alert('Benutzername nicht gefunden!');
+            const codeData = codeSnapshot.val();
+            
+            // Check if code is expired
+            if (Date.now() > codeData.expiresAt) {
+                alert('Reset-Code ist abgelaufen!');
+                await window.firebaseRemove(resetCodeRef);
                 return;
             }
-
+            
+            // Check if code is already used
+            if (codeData.used) {
+                alert('Reset-Code wurde bereits verwendet!');
+                return;
+            }
+            
+            // Check if username matches
+            if (codeData.username.toLowerCase() !== username.toLowerCase()) {
+                alert('Reset-Code gehört nicht zu diesem Benutzernamen!');
+                return;
+            }
+            
             // Update password
             const hashedPassword = await this.hashPassword(newPassword);
-            const userPasswordRef = window.firebaseRef(window.firebaseDb, `users/${foundUserId}/password`);
+            const userPasswordRef = window.firebaseRef(window.firebaseDb, `users/${codeData.userId}/password`);
             await window.firebaseSet(userPasswordRef, hashedPassword);
+            
+            // Mark code as used
+            const codeUsedRef = window.firebaseRef(window.firebaseDb, `resetCodes/${resetCode}/used`);
+            await window.firebaseSet(codeUsedRef, true);
 
             alert('✅ Passwort erfolgreich zurückgesetzt! Du kannst dich jetzt anmelden.');
             this.showLoginForm();
             
             // Clear form
             this.resetUsername.value = '';
+            this.resetCode.value = '';
             this.resetNewPassword.value = '';
             this.resetNewPasswordConfirm.value = '';
             
@@ -449,95 +467,6 @@ class BingoGame {
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
     
-    async resetPassword() {
-        const username = this.resetUsername.value.trim();
-        const securityAnswer = this.resetSecurityAnswer.value.trim().toLowerCase();
-        const newPassword = this.resetNewPassword.value;
-        const newPasswordConfirm = this.resetNewPasswordConfirm.value;
-        
-        if (!username) {
-            alert('Bitte Benutzername eingeben!');
-            return;
-        }
-        
-        if (!securityAnswer && !username) {
-            alert('Bitte Sicherheitsfrage beantworten (oder leer lassen für alte Accounts)!');
-            return;
-        }
-        
-        if (!newPassword || newPassword.length < 6) {
-            alert('Neues Passwort muss mindestens 6 Zeichen lang sein!');
-            return;
-        }
-        
-        if (newPassword !== newPasswordConfirm) {
-            alert('Passwörter stimmen nicht überein!');
-            return;
-        }
-        
-        if (!window.firebaseDb) {
-            alert('Firebase wird geladen, bitte warte...');
-            return;
-        }
-        
-        try {
-            const usersRef = window.firebaseRef(window.firebaseDb, 'users');
-            const snapshot = await window.firebaseGet(usersRef);
-            
-            if (!snapshot.exists()) {
-                alert('Benutzername nicht gefunden!');
-                return;
-            }
-            
-            const users = snapshot.val();
-            let foundUser = null;
-            
-            for (let userId in users) {
-                if (users[userId].username.toLowerCase() === username.toLowerCase()) {
-                    foundUser = { userId, ...users[userId] };
-                    break;
-                }
-            }
-            
-            if (!foundUser) {
-                alert('Benutzername nicht gefunden!');
-                return;
-            }
-            
-            // Check if user has security question (new accounts)
-            if (foundUser.securityAnswer) {
-                if (!securityAnswer) {
-                    alert('Bitte Sicherheitsfrage beantworten!');
-                    return;
-                }
-                
-                // Check security answer
-                const hashedSecurityAnswer = await this.hashPassword(securityAnswer);
-                if (hashedSecurityAnswer !== foundUser.securityAnswer) {
-                    alert('Sicherheitsantwort ist falsch!');
-                    return;
-                }
-            } else {
-                // Old account without security question - allow reset with warning
-                if (!confirm('⚠️ Dieser Account hat keine Sicherheitsfrage. Passwort wirklich zurücksetzen?')) {
-                    return;
-                }
-            }
-            
-            // Update password
-            const hashedNewPassword = await this.hashPassword(newPassword);
-            const userRef = window.firebaseRef(window.firebaseDb, `users/${foundUser.userId}/password`);
-            await window.firebaseSet(userRef, hashedNewPassword);
-            
-            alert('✅ Passwort erfolgreich zurückgesetzt! Du kannst dich jetzt anmelden.');
-            this.showLoginForm();
-            
-        } catch (error) {
-            console.error('Reset password error:', error);
-            alert('Fehler beim Zurücksetzen des Passworts!');
-        }
-    }
-
     async loadUser(userId) {
         if (!window.firebaseDb) return null;
         

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Reset Codes</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .code-display {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .code-display.show {
+            display: block;
+        }
+        .code {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+        .info {
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
+        .user-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .user-item {
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .user-item:hover {
+            background: #f0f0f0;
+        }
+        .user-item.selected {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Admin - Reset Code Generator</h1>
+        
+        <div class="form-group">
+            <label>Benutzer auswählen:</label>
+            <div id="userList" class="user-list">
+                <p style="text-align: center; color: #999;">Lade Benutzer...</p>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Oder Benutzername eingeben:</label>
+            <input type="text" id="username" placeholder="Benutzername">
+        </div>
+        
+        <div class="form-group">
+            <label>Gültigkeit:</label>
+            <select id="validity">
+                <option value="1">1 Stunde</option>
+                <option value="6">6 Stunden</option>
+                <option value="24" selected>24 Stunden</option>
+                <option value="72">3 Tage</option>
+                <option value="168">7 Tage</option>
+            </select>
+        </div>
+        
+        <button id="generateBtn">Reset-Code generieren</button>
+        
+        <div id="codeDisplay" class="code-display">
+            <h3 style="text-align: center; color: #333;">✅ Reset-Code erstellt!</h3>
+            <div class="code" id="resetCode">XXXXXX</div>
+            <p class="info">Gib diesen Code an den Benutzer weiter.<br>Der Code ist gültig bis: <span id="expiryTime"></span></p>
+            <button id="copyBtn" style="background: #28a745;">Code kopieren</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, get, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        import { firebaseConfig } from './firebase-config.js';
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        let selectedUsername = '';
+        
+        // Load users
+        async function loadUsers() {
+            const userList = document.getElementById('userList');
+            try {
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (!snapshot.exists()) {
+                    userList.innerHTML = '<p style="text-align: center; color: #999;">Keine Benutzer gefunden</p>';
+                    return;
+                }
+                
+                const users = snapshot.val();
+                userList.innerHTML = '';
+                
+                for (let userId in users) {
+                    const user = users[userId];
+                    const userItem = document.createElement('div');
+                    userItem.className = 'user-item';
+                    userItem.textContent = `${user.username} (${user.stats.wins} Siege)`;
+                    userItem.onclick = () => {
+                        document.querySelectorAll('.user-item').forEach(item => item.classList.remove('selected'));
+                        userItem.classList.add('selected');
+                        selectedUsername = user.username;
+                        document.getElementById('username').value = user.username;
+                    };
+                    userList.appendChild(userItem);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                userList.innerHTML = '<p style="text-align: center; color: #dc3545;">Fehler beim Laden</p>';
+            }
+        }
+        
+        loadUsers();
+        
+        function generateCode() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+        
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            const username = document.getElementById('username').value.trim();
+            const validity = parseInt(document.getElementById('validity').value);
+            
+            if (!username) {
+                alert('Bitte Benutzername eingeben oder auswählen!');
+                return;
+            }
+            
+            try {
+                // Check if user exists
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+                
+                if (!snapshot.exists()) {
+                    alert('Keine Benutzer gefunden!');
+                    return;
+                }
+                
+                const users = snapshot.val();
+                let foundUserId = null;
+                
+                for (let userId in users) {
+                    if (users[userId].username.toLowerCase() === username.toLowerCase()) {
+                        foundUserId = userId;
+                        break;
+                    }
+                }
+                
+                if (!foundUserId) {
+                    alert('Benutzer nicht gefunden!');
+                    return;
+                }
+                
+                // Generate reset code
+                const code = generateCode();
+                const expiresAt = Date.now() + (validity * 60 * 60 * 1000);
+                
+                const resetCodeData = {
+                    code: code,
+                    userId: foundUserId,
+                    username: username,
+                    createdAt: Date.now(),
+                    expiresAt: expiresAt,
+                    used: false
+                };
+                
+                const resetCodeRef = ref(db, `resetCodes/${code}`);
+                await set(resetCodeRef, resetCodeData);
+                
+                // Display code
+                document.getElementById('resetCode').textContent = code;
+                document.getElementById('expiryTime').textContent = new Date(expiresAt).toLocaleString('de-DE');
+                document.getElementById('codeDisplay').classList.add('show');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Fehler beim Erstellen des Codes!');
+            }
+        });
+        
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const code = document.getElementById('resetCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Code kopiert!');
+            });
+        });
+    </script>
+</body>
+</html>
