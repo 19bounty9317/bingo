@@ -851,15 +851,27 @@ body.dark-mode .game-item.lost {
 }
 
 .game-name-header {
-    text-align: center;
     font-size: 20px;
     font-weight: 700;
     color: #667eea;
-    margin-bottom: 15px;
 }
 
 body.dark-mode .game-name-header {
     color: #8b9fff;
+}
+
+.game-name-header-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.game-name-header-row .rename-game-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
 }
 
 .modal-content {

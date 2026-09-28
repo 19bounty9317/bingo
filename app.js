@@ -69,6 +69,14 @@ class BingoGame {
             this.closeGameBtn.addEventListener('click', () => this.closeGameModal());
         }
         
+        if (this.renameGameInModalBtn) {
+            this.renameGameInModalBtn.addEventListener('click', () => {
+                if (!this.gameState || !this.gameId) return;
+                const currentName = this.gameState.gameName || `Spiel ${this.gameId}`;
+                this.renameGame(this.gameId, currentName);
+            });
+        }
+        
         if (this.showStatsBtn) {
             this.showStatsBtn.addEventListener('click', () => this.showStats());
         }
@@ -108,6 +116,7 @@ class BingoGame {
         this.gameIdDisplay = document.getElementById('gameIdDisplay');
         this.waitingGameName = document.getElementById('waitingGameName');
         this.gameNameHeader = document.getElementById('gameNameHeader');
+        this.renameGameInModalBtn = document.getElementById('renameGameInModalBtn');
         this.yourName = document.getElementById('yourName');
         this.opponentName = document.getElementById('opponentName');
         this.yourWinsDisplay = document.getElementById('yourWinsDisplay');
