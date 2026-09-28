@@ -26,7 +26,7 @@ class BingoGame {
         const checkFirebase = setInterval(() => {
             if (window.firebaseDb) {
                 clearInterval(checkFirebase);
-                console.log('✅ Firebase verbunden! [Code-Version: 2026-09-28-v2]');
+                console.log('✅ Firebase verbunden!');
                 this.checkLogin(); // Auto-login nach Firebase-Verbindung
             }
         }, 100);
@@ -941,6 +941,13 @@ class BingoGame {
     async saveGameState() {
         if (!window.firebaseDb || !this.gameId) return;
         
+        // Sicherstellen, dass das gespeicherte gameId-Feld immer mit dem
+        // tatsaechlichen Firebase-Pfad uebereinstimmt (verhindert inkonsistente
+        // Datensaetze, die sich nicht mehr richtig loeschen lassen)
+        if (this.gameState) {
+            this.gameState.gameId = this.gameId;
+        }
+        
         try {
             const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
             
@@ -1565,17 +1572,23 @@ BingoGame.prototype.listenToMyGames = function() {
         const allGames = snapshot.val();
         const myGames = [];
         
-        console.log('listenToMyGames: Snapshot enthaelt IDs:', Object.keys(allGames));
-        
         // Filter games where user is host or guest
         for (let gameId in allGames) {
             const game = allGames[gameId];
+            
+            // Den tatsaechlichen Firebase-Schluessel als verbindliche ID erzwingen.
+            // Falls das interne gameId-Feld (z.B. durch einen frueheren Bug) vom
+            // echten Speicherort abweicht, wuerden Loeschen/Speichern sonst am
+            // falschen Pfad greifen und das Spiel "unloeschbar" wirken lassen.
+            if (game.gameId !== gameId) {
+                console.warn(`Inkonsistente gameId erkannt: Schluessel=${gameId}, Feld=${game.gameId}. Wird korrigiert.`);
+                game.gameId = gameId;
+            }
+            
             if (game.hostUserId === this.userId || game.guestUserId === this.userId) {
                 myGames.push(game);
             }
         }
-        
-        console.log('listenToMyGames: Gefilterte eigene Spiele:', myGames.map(g => g.gameId));
         
         // Sortierung: erst nach Status (laufend > wartend > beendet), dann neueste zuerst
         const statusOrder = { playing: 0, waiting: 1, finished: 2 };
@@ -1599,8 +1612,6 @@ BingoGame.prototype.listenToMyGames = function() {
 BingoGame.prototype.renderMyGames = function(games) {
     const container = document.getElementById('myGamesList');
     if (!container) return;
-    
-    console.log('renderMyGames: Wird aufgerufen mit IDs:', games.map(g => g.gameId));
     
     if (games.length === 0) {
         container.innerHTML = '<p class="loading-text">Keine aktiven Spiele</p>';
