@@ -1534,6 +1534,7 @@ BingoGame.prototype.renderMyGames = function(games) {
     container.innerHTML = '';
     
     games.forEach(game => {
+      try {
         const isHost = game.hostUserId === this.userId;
         const opponent = isHost ? game.guestName : game.hostName;
         const opponentText = opponent || 'Warte auf Gegner...';
@@ -1566,6 +1567,9 @@ BingoGame.prototype.renderMyGames = function(games) {
         }
         
         const displayName = game.gameName || `Spiel ${game.gameId}`;
+        const settings = game.settings || {};
+        const minVal = settings.min !== undefined ? settings.min : '?';
+        const maxVal = settings.max !== undefined ? settings.max : '?';
         
         const gameDiv = document.createElement('div');
         gameDiv.className = `game-item ${gameClass}`;
@@ -1574,7 +1578,7 @@ BingoGame.prototype.renderMyGames = function(games) {
             <div class="game-info-item-full">
                 <div class="game-title">${crownIcon}🎮 ${this.escapeHtml(displayName)}</div>
                 <div class="game-details">
-                    vs ${this.escapeHtml(opponentText)} | Zahlen: ${game.settings.min}-${game.settings.max} | 
+                    vs ${this.escapeHtml(opponentText)} | Zahlen: ${minVal}-${maxVal} | 
                     ID: ${game.gameId}
                 </div>
             </div>
@@ -1603,6 +1607,9 @@ BingoGame.prototype.renderMyGames = function(games) {
         });
         
         container.appendChild(gameDiv);
+      } catch (error) {
+        console.error('Error rendering game item:', game && game.gameId, error);
+      }
     });
     
     // Update total statistics
