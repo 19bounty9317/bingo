@@ -1494,9 +1494,23 @@ BingoGame.prototype.setupAutoSave = function() {
     });
     
     // Auto-save every 10 seconds during game
-    setInterval(() => {
-        if (this.gameState && this.gameState.status === 'playing') {
-            this.saveGameState();
+    setInterval(async () => {
+        if (this.gameState && this.gameState.status === 'playing' && this.gameId && window.firebaseDb) {
+            // Vorher pruefen, ob das Spiel in Firebase noch existiert.
+            // Verhindert, dass ein zwischenzeitlich geloeschtes Spiel durch
+            // den Autosave eines noch geoeffneten Clients "wiederbelebt" wird.
+            try {
+                const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
+                const snapshot = await window.firebaseGet(gameRef);
+                if (!snapshot.exists()) {
+                    console.log('Autosave: Spiel wurde geloescht, Autosave wird gestoppt.');
+                    this.resetGame();
+                    return;
+                }
+                this.saveGameState();
+            } catch (error) {
+                console.error('Autosave check error:', error);
+            }
         }
     }, 10000);
 };
