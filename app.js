@@ -1159,6 +1159,12 @@ BingoGame.prototype.pendingChallenge = null;
 BingoGame.prototype.startOnlinePresence = async function() {
     if (!window.firebaseDb || !this.userId) return;
     
+    // Alten Interval zuerst stoppen, damit sich nicht mehrere parallel häufen
+    if (this.presenceInterval) {
+        clearInterval(this.presenceInterval);
+        this.presenceInterval = null;
+    }
+    
     const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
     const buildPresenceData = () => ({
         userId: this.userId,
@@ -1188,6 +1194,12 @@ BingoGame.prototype.startOnlinePresence = async function() {
 
 BingoGame.prototype.listenToOnlinePlayers = function() {
     if (!window.firebaseDb) return;
+    
+    // Alten Listener zuerst abmelden, um doppelte Registrierungen zu vermeiden
+    if (this.onlineListener) {
+        this.onlineListener();
+        this.onlineListener = null;
+    }
     
     const onlineRef = window.firebaseRef(window.firebaseDb, 'online');
     this.onlineListener = window.firebaseOnValue(onlineRef, (snapshot) => {
@@ -1292,6 +1304,12 @@ BingoGame.prototype.challengePlayer = async function(targetUserId, targetUsernam
 
 BingoGame.prototype.listenToChallenges = function() {
     if (!window.firebaseDb || !this.userId) return;
+    
+    // Alten Listener zuerst abmelden, um doppelte Registrierungen zu vermeiden
+    if (this.challengeListener) {
+        this.challengeListener();
+        this.challengeListener = null;
+    }
     
     const challengesRef = window.firebaseRef(window.firebaseDb, 'challenges');
     this.challengeListener = window.firebaseOnValue(challengesRef, (snapshot) => {
@@ -1490,6 +1508,13 @@ BingoGame.prototype.myGamesListener = null;
 BingoGame.prototype.listenToMyGames = function() {
     if (!window.firebaseDb || !this.userId) return;
     
+    // Alten Listener zuerst abmelden, damit sich Listener nicht anhäufen
+    // (sonst können veraltete Snapshots gelöschte Spiele wieder "auferstehen" lassen)
+    if (this.myGamesListener) {
+        this.myGamesListener();
+        this.myGamesListener = null;
+    }
+    
     const gamesRef = window.firebaseRef(window.firebaseDb, 'games');
     this.myGamesListener = window.firebaseOnValue(gamesRef, (snapshot) => {
         if (!snapshot.exists()) {
@@ -1625,6 +1650,12 @@ BingoGame.prototype.renderMyGames = function(games) {
 // ===== LEADERBOARD (ALLE SPIELER, UNABHÄNGIG VOM ONLINE-STATUS) =====
 BingoGame.prototype.listenToLeaderboard = function() {
     if (!window.firebaseDb) return;
+    
+    // Alten Listener zuerst abmelden, um doppelte Registrierungen zu vermeiden
+    if (this.leaderboardListener) {
+        this.leaderboardListener();
+        this.leaderboardListener = null;
+    }
     
     const usersRef = window.firebaseRef(window.firebaseDb, 'users');
     this.leaderboardListener = window.firebaseOnValue(usersRef, (snapshot) => {
