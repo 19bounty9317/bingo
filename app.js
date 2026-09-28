@@ -900,8 +900,24 @@ class BingoGame {
         if (yourBoardTitle) yourBoardTitle.textContent = yourName;
         if (opponentBoardTitle) opponentBoardTitle.textContent = opponentName || 'Gegner';
         
-        if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.isHost ? (this.gameState.hostWins || 0) : (this.gameState.guestWins || 0);
-        if (this.opponentWinsDisplay) this.opponentWinsDisplay.textContent = this.isHost ? (this.gameState.guestWins || 0) : (this.gameState.hostWins || 0);
+        // Live-Pokale anzeigen statt der beim Spielstart eingefrorenen Werte
+        if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.userStats ? (this.userStats.trophies || 0) : 0;
+        
+        const opponentUserId = this.isHost ? this.gameState.guestUserId : this.gameState.hostUserId;
+        if (this.opponentWinsDisplay) {
+            if (opponentUserId && window.firebaseDb) {
+                try {
+                    const opponentUser = await this.loadUser(opponentUserId);
+                    const opponentStats = this.normalizeStats(opponentUser ? opponentUser.stats : null);
+                    this.opponentWinsDisplay.textContent = opponentStats.trophies || 0;
+                } catch (error) {
+                    console.error('Load opponent stats error:', error);
+                    this.opponentWinsDisplay.textContent = 0;
+                }
+            } else {
+                this.opponentWinsDisplay.textContent = 0;
+            }
+        }
         
         if (this.gameNameHeader) {
             this.gameNameHeader.textContent = this.gameState.gameName || `Spiel ${this.gameState.gameId}`;
@@ -1359,6 +1375,7 @@ BingoGame.prototype.showSetupScreen = function() {
     originalShowSetupScreen.call(this);
     this.startOnlinePresence();
     this.listenToMyGames();
+    this.listenToLeaderboard();
 };
 
 // Update logout to stop presence
@@ -1583,6 +1600,82 @@ BingoGame.prototype.renderMyGames = function(games) {
     this.updateTotalStats(games);
 };
 
+// ===== LEADERBOARD (ALLE SPIELER, UNABHÄNGIG VOM ONLINE-STATUS) =====
+BingoGame.prototype.listenToLeaderboard = function() {
+    if (!window.firebaseDb) return;
+    
+    const usersRef = window.firebaseRef(window.firebaseDb, 'users');
+    this.leaderboardListener = window.firebaseOnValue(usersRef, (snapshot) => {
+        if (!snapshot.exists()) {
+            this.renderLeaderboard([]);
+            return;
+        }
+        
+        const allUsers = snapshot.val();
+        const players = [];
+        
+        for (let userId in allUsers) {
+            const user = allUsers[userId];
+            const stats = this.normalizeStats(user.stats);
+            players.push({
+                userId,
+                username: user.username,
+                trophies: stats.trophies || 0,
+                wins: stats.wins || 0,
+                losses: stats.losses || 0,
+                totalGames: stats.totalGames || 0
+            });
+        }
+        
+        // Sortiert nach Pokalen absteigend, bei Gleichstand nach Siegen
+        players.sort((a, b) => (b.trophies - a.trophies) || (b.wins - a.wins));
+        
+        this.renderLeaderboard(players);
+    }, (error) => {
+        console.error('Leaderboard listener error:', error);
+        const container = document.getElementById('leaderboardList');
+        if (container) {
+            container.innerHTML = '<p class="loading-text">Rangliste konnte nicht geladen werden (Berechtigung fehlt?)</p>';
+        }
+    });
+};
+
+BingoGame.prototype.renderLeaderboard = function(players) {
+    const container = document.getElementById('leaderboardList');
+    if (!container) return;
+    
+    if (players.length === 0) {
+        container.innerHTML = '<p class="loading-text">Noch keine Spieler registriert</p>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    const medals = ['🥇', '🥈', '🥉'];
+    
+    players.forEach((player, index) => {
+        const rankIcon = medals[index] || `${index + 1}.`;
+        const isSelf = player.userId === this.userId;
+        
+        const row = document.createElement('div');
+        row.className = 'player-item leaderboard-item' + (isSelf ? ' self' : '');
+        
+        row.innerHTML = `
+            <div class="player-info-item">
+                <div class="leaderboard-rank">${rankIcon}</div>
+                <div>
+                    <div class="player-name-item">${this.escapeHtml(player.username)}${isSelf ? ' (Du)' : ''}</div>
+                    <div class="player-stats-item">
+                        🏆 ${player.trophies} Pokale · ✅ ${player.wins} Siege · ❌ ${player.losses} Niederlagen · 🎮 ${player.totalGames} Spiele
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(row);
+    });
+};
+
 BingoGame.prototype.escapeHtml = function(text) {
     const div = document.createElement('div');
     div.textContent = text == null ? '' : String(text);
@@ -1631,6 +1724,9 @@ const originalLogout2 = BingoGame.prototype.logout;
 BingoGame.prototype.logout = async function() {
     if (this.myGamesListener) {
         this.myGamesListener();
+    }
+    if (this.leaderboardListener) {
+        this.leaderboardListener();
     }
     
     originalLogout2.call(this);
