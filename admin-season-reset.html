@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Season Reset</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 650px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 25px;
+            color: #856404;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .user-table th, .user-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        .user-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            color: white;
+            margin-top: 10px;
+        }
+        #migrateBtn {
+            background: #667eea;
+        }
+        #migrateBtn:hover {
+            background: #5568d3;
+        }
+        #resetBtn {
+            background: #dc3545;
+        }
+        #resetBtn:hover {
+            background: #c82333;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .status-msg {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            font-size: 14px;
+        }
+        .status-msg.show {
+            display: block;
+        }
+        .status-msg.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-msg.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .divider {
+            border-top: 2px dashed #ddd;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏆 Admin - Season Verwaltung</h1>
+        <p class="subtitle">Rocket League Bingo</p>
+
+        <div class="warning-box">
+            ⚠️ Diese Seite ist nicht durch ein Login geschützt. Teile diese URL mit niemandem.
+        </div>
+
+        <h3>1️⃣ Alte Siege in Pokale umwandeln</h3>
+        <p style="color:#666; font-size:14px; margin-bottom:15px;">
+            Wandelt für alle Spieler die bisherigen "Siege" (aus der Zeit vor dem Pokal-System) 1:1 in Pokale um.
+            Bereits vorhandene Pokal-Werte werden dabei <strong>nicht</strong> überschrieben, nur ergänzt bis auf den Sieg-Wert aufgefüllt.
+        </p>
+        <table class="user-table" id="userTable">
+            <thead>
+                <tr><th>Spieler</th><th>Siege</th><th>Aktuelle Pokale</th></tr>
+            </thead>
+            <tbody id="userTableBody">
+                <tr><td colspan="3">Lade Spieler...</td></tr>
+            </tbody>
+        </table>
+        <button id="migrateBtn">Siege → Pokale übernehmen</button>
+        <div id="migrateStatus" class="status-msg"></div>
+
+        <div class="divider"></div>
+
+        <h3>2️⃣ Neue Season starten (kompletter Reset)</h3>
+        <p style="color:#666; font-size:14px; margin-bottom:15px;">
+            Setzt für <strong>alle Spieler</strong> Pokale, Siege, Niederlagen und Gesamtspiele auf 0 zurück.
+            Das ist unwiderruflich. Aktive/gespeicherte Bingo-Spiele selbst werden dabei nicht gelöscht.
+        </p>
+        <div class="checkbox-row">
+            <input type="checkbox" id="confirmReset">
+            <label for="confirmReset" style="margin:0;">Ich bin mir sicher, dass ich alle Statistiken aller Spieler unwiderruflich auf 0 setzen möchte.</label>
+        </div>
+        <button id="resetBtn" disabled>🔴 Neue Season starten (Reset)</button>
+        <div id="resetStatus" class="status-msg"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, get, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase Config direkt eingebettet
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGffa3OQOvZZgWkJxd_MxbWOAR49yflPc",
+            authDomain: "rl-bingo-465a6.firebaseapp.com",
+            databaseURL: "https://rl-bingo-465a6-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "rl-bingo-465a6",
+            storageBucket: "rl-bingo-465a6.firebasestorage.app",
+            messagingSenderId: "1066602059596",
+            appId: "1:1066602059596:web:dd9ea89513b18e5631a1e9",
+            measurementId: "G-RMJK2WD9WY"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        function showStatus(elId, message, type) {
+            const el = document.getElementById(elId);
+            el.textContent = message;
+            el.className = `status-msg show ${type}`;
+        }
+
+        async function loadUsers() {
+            const tbody = document.getElementById('userTableBody');
+            try {
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+
+                if (!snapshot.exists()) {
+                    tbody.innerHTML = '<tr><td colspan="3">Keine Benutzer gefunden</td></tr>';
+                    return {};
+                }
+
+                const users = snapshot.val();
+                tbody.innerHTML = '';
+
+                for (let userId in users) {
+                    const user = users[userId];
+                    const stats = user.stats || {};
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${user.username}</td>
+                        <td>${stats.wins || 0}</td>
+                        <td>${stats.trophies || 0}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+
+                return users;
+            } catch (error) {
+                console.error('Error loading users:', error);
+                tbody.innerHTML = '<tr><td colspan="3">Fehler beim Laden (Berechtigung fehlt?)</td></tr>';
+                return {};
+            }
+        }
+
+        loadUsers();
+
+        // ===== 1) MIGRATION: Siege -> Pokale =====
+        document.getElementById('migrateBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('migrateBtn');
+            btn.disabled = true;
+
+            try {
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+
+                if (!snapshot.exists()) {
+                    showStatus('migrateStatus', 'Keine Benutzer gefunden!', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+
+                const users = snapshot.val();
+                let updatedCount = 0;
+
+                for (let userId in users) {
+                    const user = users[userId];
+                    const stats = user.stats || { wins: 0, losses: 0, totalGames: 0, trophies: 0 };
+                    const currentTrophies = stats.trophies || 0;
+                    const wins = stats.wins || 0;
+
+                    // Pokale mindestens auf die Anzahl der Siege anheben, nichts reduzieren
+                    if (wins > currentTrophies) {
+                        const newStats = { ...stats, trophies: wins };
+                        const statsRef = ref(db, `users/${userId}/stats`);
+                        await set(statsRef, newStats);
+                        updatedCount++;
+                    }
+                }
+
+                showStatus('migrateStatus', `✅ Fertig! ${updatedCount} Spieler aktualisiert.`, 'success');
+                await loadUsers();
+            } catch (error) {
+                console.error('Migration error:', error);
+                showStatus('migrateStatus', '❌ Fehler bei der Migration: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // ===== 2) SEASON RESET =====
+        const confirmCheckbox = document.getElementById('confirmReset');
+        const resetBtn = document.getElementById('resetBtn');
+
+        confirmCheckbox.addEventListener('change', () => {
+            resetBtn.disabled = !confirmCheckbox.checked;
+        });
+
+        resetBtn.addEventListener('click', async () => {
+            if (!confirmCheckbox.checked) return;
+
+            const doubleCheck = confirm(
+                'Letzte Sicherheitsabfrage:\n\n' +
+                'Wirklich ALLE Spieler-Statistiken (Pokale, Siege, Niederlagen, Gesamtspiele) auf 0 zurücksetzen?\n\n' +
+                'Das kann NICHT rückgängig gemacht werden.'
+            );
+            if (!doubleCheck) return;
+
+            resetBtn.disabled = true;
+
+            try {
+                const usersRef = ref(db, 'users');
+                const snapshot = await get(usersRef);
+
+                if (!snapshot.exists()) {
+                    showStatus('resetStatus', 'Keine Benutzer gefunden!', 'error');
+                    resetBtn.disabled = false;
+                    return;
+                }
+
+                const users = snapshot.val();
+                let resetCount = 0;
+
+                for (let userId in users) {
+                    const freshStats = { wins: 0, losses: 0, totalGames: 0, trophies: 0 };
+                    const statsRef = ref(db, `users/${userId}/stats`);
+                    await set(statsRef, freshStats);
+                    resetCount++;
+                }
+
+                showStatus('resetStatus', `✅ Neue Season gestartet! ${resetCount} Spieler zurückgesetzt.`, 'success');
+                confirmCheckbox.checked = false;
+                resetBtn.disabled = true;
+                await loadUsers();
+            } catch (error) {
+                console.error('Reset error:', error);
+                showStatus('resetStatus', '❌ Fehler beim Reset: ' + error.message, 'error');
+                resetBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
