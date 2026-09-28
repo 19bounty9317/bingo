@@ -943,7 +943,28 @@ class BingoGame {
         
         try {
             const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
-            await window.firebaseSet(gameRef, this.gameState);
+            
+            if (window.firebaseRunTransaction) {
+                // Transaction statt set(): bricht automatisch ab, wenn der Pfad
+                // zwischenzeitlich (z.B. durch "Spiel loeschen") auf null gesetzt wurde.
+                // Verhindert, dass ein geloeschtes Spiel durch einen noch offenen
+                // Tab/Client versehentlich wiederbelebt wird.
+                const result = await window.firebaseRunTransaction(gameRef, (currentData) => {
+                    if (currentData === null) {
+                        // Spiel wurde geloescht - nicht wiederherstellen, Transaction abbrechen
+                        return undefined;
+                    }
+                    return this.gameState;
+                });
+                
+                if (!result.committed) {
+                    console.log('saveGameState: Spiel wurde geloescht, Speichern abgebrochen.');
+                    this.resetGame();
+                }
+            } else {
+                // Fallback falls runTransaction nicht verfuegbar ist
+                await window.firebaseSet(gameRef, this.gameState);
+            }
         } catch (error) {
             console.error('Save error:', error);
         }
