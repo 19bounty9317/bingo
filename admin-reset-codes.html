@@ -182,7 +182,7 @@
                     const user = users[userId];
                     const userItem = document.createElement('div');
                     userItem.className = 'user-item';
-                    userItem.textContent = `${user.username} (${user.stats.wins} Siege)`;
+                    userItem.textContent = `${user.username} (${user.stats.trophies ?? user.stats.wins ?? 0} Pokale)`;
                     userItem.onclick = () => {
                         document.querySelectorAll('.user-item').forEach(item => item.classList.remove('selected'));
                         userItem.classList.add('selected');

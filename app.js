@@ -546,8 +546,8 @@ class BingoGame {
         if (this.winsCount) this.winsCount.textContent = this.userStats.wins;
         if (this.lossesCount) this.lossesCount.textContent = this.userStats.losses;
         if (this.totalGamesCount) this.totalGamesCount.textContent = this.userStats.totalGames;
-        if (this.winsCountJoin) this.winsCountJoin.textContent = this.userStats.wins;
-        if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.userStats.wins;
+        if (this.winsCountJoin) this.winsCountJoin.textContent = this.userStats.trophies || 0;
+        if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.userStats.trophies || 0;
         if (this.crownCount) this.crownCount.textContent = this.userStats.trophies || 0;
         if (this.trophyCount) this.trophyCount.textContent = this.userStats.trophies || 0;
     }
@@ -855,7 +855,7 @@ class BingoGame {
                 🎉 Du hast gewonnen! 🎉<br>
                 <small style="font-size: 0.6em; color: #666; margin-top: 10px; display: block;">
                     Deine Bingos: ${yourBingos.join(', ')}<br>
-                    Neue Statistik: ${this.userStats.wins} Siege
+                    Neue Statistik: ${this.userStats.trophies || 0} Pokale
                 </small>
             `;
         } else {
@@ -1242,7 +1242,7 @@ BingoGame.prototype.renderOnlinePlayers = function(players) {
                 <div>
                     <div class="player-name-item">${player.username}</div>
                     <div class="player-stats-item">
-                        🏆 ${trophies} Pokale · ✅ ${player.wins || 0} Siege · ❌ ${losses} Niederlagen · 🎮 ${totalGames} Spiele
+                        🏆 ${trophies} Pokale · ❌ ${losses} Niederlagen · 🎮 ${totalGames} Spiele
                     </div>
                 </div>
             </div>
@@ -1518,6 +1518,12 @@ BingoGame.prototype.listenToMyGames = function() {
         });
         
         this.renderMyGames(myGames);
+    }, (error) => {
+        console.error('listenToMyGames error:', error);
+        const container = document.getElementById('myGamesList');
+        if (container) {
+            container.innerHTML = `<p class="loading-text">⚠️ Spiele konnten nicht geladen werden: ${error.message || error}. Firebase-Regeln für "games" prüfen (.read fehlt auf der games-Ebene).</p>`;
+        }
     });
 };
 
@@ -1682,7 +1688,7 @@ BingoGame.prototype.renderLeaderboard = function(players) {
                 <div>
                     <div class="player-name-item">${this.escapeHtml(player.username)}${isSelf ? ' (Du)' : ''}</div>
                     <div class="player-stats-item">
-                        🏆 ${player.trophies} Pokale · ✅ ${player.wins} Siege · ❌ ${player.losses} Niederlagen · 🎮 ${player.totalGames} Spiele
+                        🏆 ${player.trophies} Pokale · ❌ ${player.losses} Niederlagen · 🎮 ${player.totalGames} Spiele
                     </div>
                 </div>
             </div>
