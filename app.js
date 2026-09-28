@@ -26,7 +26,7 @@ class BingoGame {
         const checkFirebase = setInterval(() => {
             if (window.firebaseDb) {
                 clearInterval(checkFirebase);
-                console.log('✅ Firebase verbunden!');
+                console.log('✅ Firebase verbunden! [Code-Version: 2026-09-28-v2]');
                 this.checkLogin(); // Auto-login nach Firebase-Verbindung
             }
         }, 100);
@@ -1565,6 +1565,8 @@ BingoGame.prototype.listenToMyGames = function() {
         const allGames = snapshot.val();
         const myGames = [];
         
+        console.log('listenToMyGames: Snapshot enthaelt IDs:', Object.keys(allGames));
+        
         // Filter games where user is host or guest
         for (let gameId in allGames) {
             const game = allGames[gameId];
@@ -1572,6 +1574,8 @@ BingoGame.prototype.listenToMyGames = function() {
                 myGames.push(game);
             }
         }
+        
+        console.log('listenToMyGames: Gefilterte eigene Spiele:', myGames.map(g => g.gameId));
         
         // Sortierung: erst nach Status (laufend > wartend > beendet), dann neueste zuerst
         const statusOrder = { playing: 0, waiting: 1, finished: 2 };
@@ -1595,6 +1599,8 @@ BingoGame.prototype.listenToMyGames = function() {
 BingoGame.prototype.renderMyGames = function(games) {
     const container = document.getElementById('myGamesList');
     if (!container) return;
+    
+    console.log('renderMyGames: Wird aufgerufen mit IDs:', games.map(g => g.gameId));
     
     if (games.length === 0) {
         container.innerHTML = '<p class="loading-text">Keine aktiven Spiele</p>';
