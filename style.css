@@ -380,10 +380,12 @@ h1 {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
 }
 
 .tab-btn {
     flex: 1;
+    min-width: 120px;
     padding: 10px;
     border: 2px solid #ddd;
     background: white;
@@ -814,6 +816,39 @@ body.dark-mode .game-item.lost {
 .delete-game-btn:hover {
     background: #c82333;
     transform: scale(1.1);
+}
+
+.rename-game-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    flex-shrink: 0;
+}
+
+.rename-game-btn:hover {
+    background: #5568d3;
+    transform: scale(1.1);
+}
+
+.game-name-header {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 15px;
+}
+
+body.dark-mode .game-name-header {
+    color: #8b9fff;
 }
 
 .modal-content {

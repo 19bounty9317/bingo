@@ -146,7 +146,17 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getDatabase, ref, get, set } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
         
-        import { firebaseConfig } from './firebase-config.js';
+        // Firebase Config direkt eingebettet
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGffa3OQOvZZgWkJxd_MxbWOAR49yflPc",
+            authDomain: "rl-bingo-465a6.firebaseapp.com",
+            databaseURL: "https://rl-bingo-465a6-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "rl-bingo-465a6",
+            storageBucket: "rl-bingo-465a6.firebasestorage.app",
+            messagingSenderId: "1066602059596",
+            appId: "1:1066602059596:web:dd9ea89513b18e5631a1e9",
+            measurementId: "G-RMJK2WD9WY"
+        };
         
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);

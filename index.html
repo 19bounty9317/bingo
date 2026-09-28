@@ -86,9 +86,13 @@
             <div class="card">
                 <div class="user-profile">
                     <div class="user-badge">
-                        <span>👤 <span id="currentUsername"></span> | 👑 <span id="crownCount">0</span></span>
+                        <span>👤 <span id="currentUsername"></span> | 🏆 <span id="crownCount">0</span> Pokale</span>
                     </div>
                     <div class="user-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="trophyCount">0</span>
+                            <span class="stat-label">Pokale</span>
+                        </div>
                         <div class="stat">
                             <span class="stat-value" id="winsCount">0</span>
                             <span class="stat-label">Siege</span>
@@ -105,6 +109,10 @@
                 </div>
                 
                 <h2>Spiel erstellen</h2>
+                <div class="form-group">
+                    <label>Name des Spiels:</label>
+                    <input type="text" id="gameNameInput" placeholder="z.B. Turnier Runde 1" maxlength="40">
+                </div>
                 <div class="form-group">
                     <label>Zahlenbereich:</label>
                     <div class="range-input">
@@ -197,6 +205,7 @@
             <div class="card">
                 <h2>Warte auf Gegner...</h2>
                 <div class="game-info">
+                    <p><strong>Spielname:</strong> <span id="waitingGameName"></span></p>
                     <p><strong>Dein Name:</strong> <span id="playerNameDisplay"></span></p>
                     <p><strong>Spiel-ID:</strong> <span id="gameIdDisplay"></span></p>
                     <p class="info-text">Teile diese ID mit deinem Gegner!</p>
@@ -211,6 +220,7 @@
             <div class="modal-content game-modal-content">
                 <button id="closeGameBtn" class="close-game-btn">✕</button>
                 
+                <div class="game-name-header" id="gameNameHeader"></div>
                 <div class="game-header">
                     <div class="player-info">
                         <div class="player-name" id="yourName">Du</div>

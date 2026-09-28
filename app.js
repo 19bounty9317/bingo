@@ -56,6 +56,7 @@ class BingoGame {
         this.logoutBtn = document.getElementById('logoutBtn');
         this.deleteAccountBtn = document.getElementById('deleteAccountBtn');
         this.createGameBtn = document.getElementById('createGameBtn');
+        this.gameNameInput = document.getElementById('gameNameInput');
         this.joinGameBtn = document.getElementById('joinGameBtn');
         this.joinGameConfirmBtn = document.getElementById('joinGameConfirmBtn');
         this.backToSetupBtn = document.getElementById('backToSetupBtn');
@@ -102,8 +103,11 @@ class BingoGame {
         this.totalGamesCount = document.getElementById('totalGamesCount');
         this.winsCountJoin = document.getElementById('winsCountJoin');
         this.crownCount = document.getElementById('crownCount');
+        this.trophyCount = document.getElementById('trophyCount');
         this.playerNameDisplay = document.getElementById('playerNameDisplay');
         this.gameIdDisplay = document.getElementById('gameIdDisplay');
+        this.waitingGameName = document.getElementById('waitingGameName');
+        this.gameNameHeader = document.getElementById('gameNameHeader');
         this.yourName = document.getElementById('yourName');
         this.opponentName = document.getElementById('opponentName');
         this.yourWinsDisplay = document.getElementById('yourWinsDisplay');
@@ -209,7 +213,7 @@ class BingoGame {
                     console.log('Auto-login successful:', user.username);
                     this.userId = savedUserId;
                     this.username = user.username;
-                    this.userStats = user.stats;
+                    this.userStats = this.normalizeStats(user.stats);
                     this.playerId = this.generateId();
                     this.showSetupScreen();
                 } else {
@@ -286,7 +290,8 @@ class BingoGame {
                 stats: {
                     wins: 0,
                     losses: 0,
-                    totalGames: 0
+                    totalGames: 0,
+                    trophies: 0
                 },
                 createdAt: Date.now()
             };
@@ -359,7 +364,7 @@ class BingoGame {
 
             this.userId = foundUser.userId;
             this.username = foundUser.username;
-            this.userStats = foundUser.stats;
+            this.userStats = this.normalizeStats(foundUser.stats);
             this.playerId = this.generateId();
             
             localStorage.setItem('bingo_user_id', this.userId);
@@ -480,13 +485,24 @@ class BingoGame {
         }
     }
 
-    async updateUserStats(won) {
+    normalizeStats(stats) {
+        // Stellt sicher, dass ältere Accounts ohne "trophies"-Feld nicht crashen
+        const safeStats = stats || { wins: 0, losses: 0, totalGames: 0 };
+        if (typeof safeStats.trophies !== 'number') {
+            safeStats.trophies = 0;
+        }
+        return safeStats;
+    }
+
+    async updateUserStats(won, trophyCount = 0) {
         if (!this.userId || !window.firebaseDb) return;
         
         try {
             this.userStats.totalGames++;
             if (won) {
                 this.userStats.wins++;
+                // Pokale: ein Pokal pro gleichzeitig abgeschlossenem Bingo-Muster (Reihe/Spalte/Diagonale)
+                this.userStats.trophies = (this.userStats.trophies || 0) + Math.max(trophyCount, 1);
             } else {
                 this.userStats.losses++;
             }
@@ -495,6 +511,23 @@ class BingoGame {
             await window.firebaseSet(statsRef, this.userStats);
             
             this.updateStatsDisplay();
+            
+            // Online-Presence sofort aktualisieren, damit andere Spieler die neuen Stats sehen
+            if (this.userId && window.firebaseDb) {
+                const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
+                window.firebaseGet(presenceRef).then(snap => {
+                    if (snap.exists()) {
+                        window.firebaseSet(presenceRef, {
+                            ...snap.val(),
+                            wins: this.userStats.wins,
+                            losses: this.userStats.losses,
+                            totalGames: this.userStats.totalGames,
+                            trophies: this.userStats.trophies || 0,
+                            lastSeen: Date.now()
+                        });
+                    }
+                }).catch(() => {});
+            }
         } catch (error) {
             console.error('Update stats error:', error);
         }
@@ -506,7 +539,8 @@ class BingoGame {
         if (this.totalGamesCount) this.totalGamesCount.textContent = this.userStats.totalGames;
         if (this.winsCountJoin) this.winsCountJoin.textContent = this.userStats.wins;
         if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.userStats.wins;
-        if (this.crownCount) this.crownCount.textContent = this.userStats.wins;
+        if (this.crownCount) this.crownCount.textContent = this.userStats.trophies || 0;
+        if (this.trophyCount) this.trophyCount.textContent = this.userStats.trophies || 0;
     }
 
     logout() {
@@ -542,8 +576,12 @@ class BingoGame {
 
         const numbers = this.generateBingoNumbers(min, max, allowDuplicates);
         
+        const customName = this.gameNameInput ? this.gameNameInput.value.trim() : '';
+        const gameName = customName || `Spiel ${this.gameId}`;
+        
         this.gameState = {
             gameId: this.gameId,
+            gameName: gameName,
             hostId: this.playerId,
             hostUserId: this.userId,
             hostName: this.username,
@@ -565,6 +603,7 @@ class BingoGame {
         };
 
         await this.saveGameState();
+        if (this.gameNameInput) this.gameNameInput.value = '';
         this.showWaitingScreen();
         this.listenToGameChanges();
     }
@@ -743,11 +782,11 @@ class BingoGame {
             this.gameState.status = 'finished';
             this.saveGameState();
             
-            // Update stats
+            // Update stats - Pokale = Anzahl der gleichzeitig erreichten Bingo-Muster
             if (this.isHost) {
-                this.updateUserStats(true);
+                this.updateUserStats(true, hostBingos.length);
             } else {
-                this.updateUserStats(false);
+                this.updateUserStats(false, 0);
             }
             
             this.showWinner();
@@ -756,11 +795,11 @@ class BingoGame {
             this.gameState.status = 'finished';
             this.saveGameState();
             
-            // Update stats
+            // Update stats - Pokale = Anzahl der gleichzeitig erreichten Bingo-Muster
             if (!this.isHost) {
-                this.updateUserStats(true);
+                this.updateUserStats(true, guestBingos.length);
             } else {
-                this.updateUserStats(false);
+                this.updateUserStats(false, 0);
             }
             
             this.showWinner();
@@ -863,6 +902,10 @@ class BingoGame {
         
         if (this.yourWinsDisplay) this.yourWinsDisplay.textContent = this.isHost ? (this.gameState.hostWins || 0) : (this.gameState.guestWins || 0);
         if (this.opponentWinsDisplay) this.opponentWinsDisplay.textContent = this.isHost ? (this.gameState.guestWins || 0) : (this.gameState.hostWins || 0);
+        
+        if (this.gameNameHeader) {
+            this.gameNameHeader.textContent = this.gameState.gameName || `Spiel ${this.gameState.gameId}`;
+        }
     }
 
     async saveGameState() {
@@ -992,6 +1035,9 @@ class BingoGame {
         this.waitingScreen.classList.remove('hidden');
         this.playerNameDisplay.textContent = this.username;
         this.gameIdDisplay.textContent = this.gameId;
+        if (this.waitingGameName) {
+            this.waitingGameName.textContent = (this.gameState && this.gameState.gameName) || `Spiel ${this.gameId}`;
+        }
     }
 
     showGameScreen() {
@@ -1089,18 +1135,21 @@ BingoGame.prototype.startOnlinePresence = async function() {
     if (!window.firebaseDb || !this.userId) return;
     
     const presenceRef = window.firebaseRef(window.firebaseDb, `online/${this.userId}`);
-    const presenceData = {
+    const buildPresenceData = () => ({
         userId: this.userId,
         username: this.username,
         wins: this.userStats.wins,
+        losses: this.userStats.losses,
+        totalGames: this.userStats.totalGames,
+        trophies: this.userStats.trophies || 0,
         lastSeen: Date.now()
-    };
+    });
     
-    await window.firebaseSet(presenceRef, presenceData);
+    await window.firebaseSet(presenceRef, buildPresenceData());
     
-    // Update every 30 seconds
+    // Update every 30 seconds (liest jeweils die aktuellen Live-Stats)
     this.presenceInterval = setInterval(async () => {
-        await window.firebaseSet(presenceRef, { ...presenceData, lastSeen: Date.now() });
+        await window.firebaseSet(presenceRef, buildPresenceData());
     }, 30000);
     
     // Remove on disconnect
@@ -1158,12 +1207,18 @@ BingoGame.prototype.renderOnlinePlayers = function(players) {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'player-item';
         
+        const trophies = player.trophies || 0;
+        const losses = player.losses || 0;
+        const totalGames = player.totalGames || 0;
+        
         playerDiv.innerHTML = `
             <div class="player-info-item">
                 <div class="online-indicator"></div>
                 <div>
                     <div class="player-name-item">${player.username}</div>
-                    <div class="player-stats-item">🏆 ${player.wins} Siege</div>
+                    <div class="player-stats-item">
+                        🏆 ${trophies} Pokale · ✅ ${player.wins || 0} Siege · ❌ ${losses} Niederlagen · 🎮 ${totalGames} Spiele
+                    </div>
                 </div>
             </div>
             <button class="challenge-btn" data-user-id="${userId}">Herausfordern</button>
@@ -1193,6 +1248,7 @@ BingoGame.prototype.challengePlayer = async function(targetUserId, targetUsernam
     
     const challengeData = {
         challengeId: this.gameId,
+        gameName: `${this.username} vs ${targetUsername}`,
         fromUserId: this.userId,
         fromUsername: this.username,
         toUserId: targetUserId,
@@ -1254,6 +1310,7 @@ BingoGame.prototype.acceptChallenge = async function() {
     
     this.gameState = {
         gameId: this.gameId,
+        gameName: challenge.gameName || `${challenge.fromUsername} vs ${this.username}`,
         hostId: this.generateId(),
         hostUserId: challenge.fromUserId,
         hostName: challenge.fromUsername,
@@ -1425,8 +1482,14 @@ BingoGame.prototype.listenToMyGames = function() {
             }
         }
         
-        // Sort by createdAt (newest first)
-        myGames.sort((a, b) => b.createdAt - a.createdAt);
+        // Sortierung: erst nach Status (laufend > wartend > beendet), dann neueste zuerst
+        const statusOrder = { playing: 0, waiting: 1, finished: 2 };
+        myGames.sort((a, b) => {
+            const orderA = statusOrder[a.status] ?? 3;
+            const orderB = statusOrder[b.status] ?? 3;
+            if (orderA !== orderB) return orderA - orderB;
+            return b.createdAt - a.createdAt;
+        });
         
         this.renderMyGames(myGames);
     });
@@ -1476,25 +1539,35 @@ BingoGame.prototype.renderMyGames = function(games) {
             }
         }
         
+        const displayName = game.gameName || `Spiel ${game.gameId}`;
+        
         const gameDiv = document.createElement('div');
         gameDiv.className = `game-item ${gameClass}`;
         
         gameDiv.innerHTML = `
             <div class="game-info-item-full">
-                <div class="game-title">${crownIcon}🎮 vs ${opponentText}</div>
+                <div class="game-title">${crownIcon}🎮 ${this.escapeHtml(displayName)}</div>
                 <div class="game-details">
-                    Zahlen: ${game.settings.min}-${game.settings.max} | 
+                    vs ${this.escapeHtml(opponentText)} | Zahlen: ${game.settings.min}-${game.settings.max} | 
                     ID: ${game.gameId}
                 </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <div class="game-status-badge ${statusClass}">${statusText}</div>
+                <button class="rename-game-btn" data-game-id="${game.gameId}" title="Spiel umbenennen">✏️</button>
                 <button class="delete-game-btn" data-game-id="${game.gameId}" title="Spiel löschen">🗑️</button>
             </div>
         `;
         
         // Click on game to open
         gameDiv.querySelector('.game-info-item-full').addEventListener('click', () => this.openGame(game));
+        
+        // Click on rename button
+        const renameBtn = gameDiv.querySelector('.rename-game-btn');
+        renameBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent opening game
+            this.renameGame(game.gameId, displayName);
+        });
         
         // Click on delete button
         const deleteBtn = gameDiv.querySelector('.delete-game-btn');
@@ -1508,6 +1581,35 @@ BingoGame.prototype.renderMyGames = function(games) {
     
     // Update total statistics
     this.updateTotalStats(games);
+};
+
+BingoGame.prototype.escapeHtml = function(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+};
+
+// ===== RENAME GAME =====
+BingoGame.prototype.renameGame = async function(gameId, currentName) {
+    if (!window.firebaseDb) return;
+    
+    const newName = prompt('Neuer Name für dieses Bingo-Spiel:', currentName);
+    
+    if (newName === null) return; // Abgebrochen
+    
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+        alert('Der Name darf nicht leer sein!');
+        return;
+    }
+    
+    try {
+        const gameNameRef = window.firebaseRef(window.firebaseDb, `games/${gameId}/gameName`);
+        await window.firebaseSet(gameNameRef, trimmedName);
+    } catch (error) {
+        console.error('Rename game error:', error);
+        alert('Fehler beim Umbenennen des Spiels!');
+    }
 };
 
 BingoGame.prototype.openGame = async function(game) {
