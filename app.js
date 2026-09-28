@@ -917,6 +917,9 @@ class BingoGame {
             if (opponentUserId && window.firebaseDb) {
                 try {
                     const opponentUser = await this.loadUser(opponentUserId);
+                    // gameState kann waehrend des await gelöscht/zurückgesetzt worden sein
+                    // (z.B. wenn das Spiel inzwischen entfernt wurde) - dann hier abbrechen
+                    if (!this.gameState) return;
                     const opponentStats = this.normalizeStats(opponentUser ? opponentUser.stats : null);
                     this.opponentWinsDisplay.textContent = opponentStats.trophies || 0;
                 } catch (error) {
@@ -927,6 +930,8 @@ class BingoGame {
                 this.opponentWinsDisplay.textContent = 0;
             }
         }
+        
+        if (!this.gameState) return;
         
         if (this.gameNameHeader) {
             this.gameNameHeader.textContent = this.gameState.gameName || `Spiel ${this.gameState.gameId}`;
@@ -1773,6 +1778,23 @@ BingoGame.prototype.renameGame = async function(gameId, currentName) {
 };
 
 BingoGame.prototype.openGame = async function(game) {
+    // Vorher pruefen, ob das Spiel noch existiert (kann inzwischen geloescht worden sein,
+    // z.B. wenn ein Klick auf die Karte kurz vor/nach dem Loeschen durchgerutscht ist)
+    if (window.firebaseDb && game.gameId) {
+        try {
+            const gameRef = window.firebaseRef(window.firebaseDb, `games/${game.gameId}`);
+            const snapshot = await window.firebaseGet(gameRef);
+            if (!snapshot.exists()) {
+                console.log('openGame: Spiel existiert nicht mehr, wird ignoriert:', game.gameId);
+                return;
+            }
+            // Frischen Stand aus Firebase nehmen statt des ggf. veralteten Listen-Objekts
+            game = snapshot.val();
+        } catch (error) {
+            console.error('openGame existence check error:', error);
+        }
+    }
+    
     this.gameId = game.gameId;
     this.gameState = game;
     this.isHost = game.hostUserId === this.userId;
