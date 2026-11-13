@@ -951,14 +951,18 @@ class BingoGame {
         try {
             const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
             
-            if (window.firebaseRunTransaction) {
-                // Transaction statt set(): bricht automatisch ab, wenn der Pfad
+            // Beim ersten Erstellen eines Spiels (createdAt ist sehr neu) verwenden wir set()
+            // Bei allen Updates verwenden wir runTransaction zum Schutz vor Zombie-Restores
+            const isNewGame = this.gameState && this.gameState.createdAt && (Date.now() - this.gameState.createdAt < 5000);
+            
+            if (!isNewGame && window.firebaseRunTransaction) {
+                // Transaction fuer Updates: bricht automatisch ab, wenn der Pfad
                 // zwischenzeitlich (z.B. durch "Spiel loeschen") auf null gesetzt wurde.
                 // Verhindert, dass ein geloeschtes Spiel durch einen noch offenen
                 // Tab/Client versehentlich wiederbelebt wird.
                 const result = await window.firebaseRunTransaction(gameRef, (currentData) => {
                     if (currentData === null) {
-                        // Spiel wurde geloescht - nicht wiederherstellen, Transaction abbrechen
+                        // Spiel wurde geloescht - nicht wiederherstellen
                         return undefined;
                     }
                     return this.gameState;
@@ -969,7 +973,7 @@ class BingoGame {
                     this.resetGame();
                 }
             } else {
-                // Fallback falls runTransaction nicht verfuegbar ist
+                // Neues Spiel oder Fallback: normales set()
                 await window.firebaseSet(gameRef, this.gameState);
             }
         } catch (error) {
