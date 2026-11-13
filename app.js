@@ -68,23 +68,7 @@ class BingoGame {
         if (this.closeGameBtn) {
             this.closeGameBtn.addEventListener('click', () => this.closeGameModal());
         }
-        
-        if (this.renameGameInModalBtn) {
-            this.renameGameInModalBtn.addEventListener('click', () => {
-                if (!this.gameState || !this.gameId) return;
-                const currentName = this.gameState.gameName || `Spiel ${this.gameId}`;
-                this.renameGame(this.gameId, currentName);
-            });
-        }
-        
-        if (this.showStatsBtn) {
-            this.showStatsBtn.addEventListener('click', () => this.showStats());
-        }
-        
-        if (this.closeStatsBtn) {
-            this.closeStatsBtn.addEventListener('click', () => this.closeStats());
-        }
-        
+
         // Login Inputs
         this.loginUsername = document.getElementById('loginUsername');
         this.loginPassword = document.getElementById('loginPassword');
@@ -161,7 +145,19 @@ class BingoGame {
         if (this.cancelGameBtn) this.cancelGameBtn.addEventListener('click', () => this.cancelGame());
         if (this.newGameBtn) this.newGameBtn.addEventListener('click', () => this.resetGame());
         if (this.closeModalBtn) this.closeModalBtn.addEventListener('click', () => this.closeModal());
-        
+
+        // Knöpfe im Spielfenster (erst hier anschließen - in initializeElements
+        // werden diese Elemente erst weiter unten gesucht)
+        if (this.renameGameInModalBtn) {
+            this.renameGameInModalBtn.addEventListener('click', () => {
+                if (!this.gameState || !this.gameId) return;
+                const currentName = this.gameState.gameName || `Spiel ${this.gameId}`;
+                this.renameGame(this.gameId, currentName);
+            });
+        }
+        if (this.showStatsBtn) this.showStatsBtn.addEventListener('click', () => this.showStats());
+        if (this.closeStatsBtn) this.closeStatsBtn.addEventListener('click', () => this.closeStats());
+
         // Enter key support
         if (this.loginPassword) {
             this.loginPassword.addEventListener('keypress', (e) => {
@@ -611,7 +607,12 @@ class BingoGame {
             createdAt: Date.now()
         };
 
-        await this.saveGameState();
+        const created = await this.saveGameState({ create: true });
+        if (!created) {
+            alert('Spiel konnte nicht erstellt werden!');
+            this.resetGame();
+            return;
+        }
         if (this.gameNameInput) this.gameNameInput.value = '';
         this.showWaitingScreen();
         this.listenToGameChanges();
@@ -649,10 +650,15 @@ class BingoGame {
             this.gameState.guestId = this.playerId;
             this.gameState.guestUserId = this.userId;
             this.gameState.guestName = this.username;
-            this.gameState.guestWins = this.userStats.wins;
+            this.gameState.guestWins = this.userStats.wins || 0;
             this.gameState.status = 'playing';
-            
-            await this.saveGameState();
+
+            const saved = await this.saveGameState();
+            if (!saved) {
+                this.resetGame();
+                alert('Spiel nicht gefunden!');
+                return;
+            }
             this.showGameScreen();
             this.listenToGameChanges();
         } catch (error) {
@@ -938,46 +944,47 @@ class BingoGame {
         }
     }
 
-    async saveGameState() {
-        if (!window.firebaseDb || !this.gameId) return;
-        
+    // Speichert den Spielstand. Gibt true zurück, wenn das Spiel danach in Firebase existiert.
+    // options.create = true: neues Spiel anlegen (normales set()).
+    // Sonst: Update per Transaction, die ein inzwischen gelöschtes Spiel NICHT wiederbelebt.
+    async saveGameState(options = {}) {
+        if (!window.firebaseDb || !this.gameId || !this.gameState) return false;
+
         // Sicherstellen, dass das gespeicherte gameId-Feld immer mit dem
         // tatsaechlichen Firebase-Pfad uebereinstimmt (verhindert inkonsistente
         // Datensaetze, die sich nicht mehr richtig loeschen lassen)
-        if (this.gameState) {
-            this.gameState.gameId = this.gameId;
-        }
-        
+        this.gameState.gameId = this.gameId;
+
+        const savedGameId = this.gameId;
+        const stateToSave = this.gameState;
+
         try {
-            const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
-            
-            // Beim ersten Erstellen eines Spiels (createdAt ist sehr neu) verwenden wir set()
-            // Bei allen Updates verwenden wir runTransaction zum Schutz vor Zombie-Restores
-            const isNewGame = this.gameState && this.gameState.createdAt && (Date.now() - this.gameState.createdAt < 5000);
-            
-            if (!isNewGame && window.firebaseRunTransaction) {
-                // Transaction fuer Updates: bricht automatisch ab, wenn der Pfad
-                // zwischenzeitlich (z.B. durch "Spiel loeschen") auf null gesetzt wurde.
-                // Verhindert, dass ein geloeschtes Spiel durch einen noch offenen
-                // Tab/Client versehentlich wiederbelebt wird.
-                const result = await window.firebaseRunTransaction(gameRef, (currentData) => {
-                    if (currentData === null) {
-                        // Spiel wurde geloescht - nicht wiederherstellen
-                        return undefined;
-                    }
-                    return this.gameState;
-                });
-                
-                if (!result.committed) {
-                    console.log('saveGameState: Spiel wurde geloescht, Speichern abgebrochen.');
-                    this.resetGame();
-                }
-            } else {
-                // Neues Spiel oder Fallback: normales set()
-                await window.firebaseSet(gameRef, this.gameState);
+            const gameRef = window.firebaseRef(window.firebaseDb, `games/${savedGameId}`);
+
+            if (options.create || !window.firebaseRunTransaction) {
+                await window.firebaseSet(gameRef, stateToSave);
+                return true;
             }
+
+            const result = await window.firebaseRunTransaction(gameRef, (currentData) => {
+                // Firebase ruft diese Funktion zuerst mit dem lokalen Cache auf. Der kann
+                // null sein, obwohl das Spiel auf dem Server existiert. Deshalb hier nicht
+                // abbrechen, sondern null zurückgeben: Firebase gleicht dann mit dem Server
+                // ab und ruft die Funktion mit dem echten Wert erneut auf. Ist das Spiel
+                // wirklich gelöscht, bleibt es gelöscht (kein Zombie-Restore).
+                if (currentData === null) return null;
+                return stateToSave;
+            }, { applyLocally: false });
+
+            if (!result.committed || !result.snapshot.exists()) {
+                console.log('saveGameState: Spiel existiert nicht mehr, Speichern abgebrochen:', savedGameId);
+                if (this.gameId === savedGameId) this.resetGame();
+                return false;
+            }
+            return true;
         } catch (error) {
             console.error('Save error:', error);
+            return false;
         }
     }
 
@@ -996,16 +1003,23 @@ class BingoGame {
 
     listenToGameChanges() {
         if (!window.firebaseDb || !this.gameId) return;
-        
+
+        // Nie zwei Spiel-Listener gleichzeitig aktiv lassen
+        this.stopListening();
+
         console.log('Starting to listen to game:', this.gameId);
-        
+
         const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
-        
+
         this.gameListener = window.firebaseOnValue(gameRef, (snapshot) => {
             console.log('Game update received');
-            
+
             if (!snapshot.exists()) {
-                alert('Spiel wurde beendet!');
+                const wasOpenChallenge = this.isHost && this.gameState &&
+                    this.gameState.status === 'waiting' && this.gameState.invitedName;
+                alert(wasOpenChallenge
+                    ? `${this.gameState.invitedName} hat die Herausforderung abgelehnt.`
+                    : 'Spiel wurde beendet!');
                 this.resetGame();
                 return;
             }
@@ -1047,15 +1061,19 @@ class BingoGame {
     }
 
     async cancelGame() {
+        // Erst den Listener abmelden, sonst meldet das eigene Löschen "Spiel wurde beendet!"
+        this.stopListening();
         if (this.gameId && window.firebaseDb) {
             try {
                 const gameRef = window.firebaseRef(window.firebaseDb, `games/${this.gameId}`);
                 await window.firebaseRemove(gameRef);
+                // Offene Herausforderung zu diesem Spiel ebenfalls zurückziehen
+                const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${this.gameId}`);
+                await window.firebaseRemove(challengeRef);
             } catch (error) {
                 console.error('Delete error:', error);
             }
         }
-        this.stopListening();
         this.resetGame();
     }
 
@@ -1103,6 +1121,11 @@ class BingoGame {
     }
 
     showGameScreen() {
+        // Ohne geladenes Spielfeld nicht den leeren Spielrahmen öffnen
+        if (!this.gameState || !this.gameState.hostBoard || !this.gameState.guestBoard) {
+            console.warn('showGameScreen: kein Spielstand geladen, Spielfenster bleibt zu.');
+            return;
+        }
         this.waitingScreen.classList.add('hidden');
         this.joinScreen.classList.add('hidden');
         this.gameModal.classList.remove('hidden');
@@ -1317,26 +1340,78 @@ BingoGame.prototype.challengePlayer = async function(targetUserId, targetUsernam
         return;
     }
     
-    this.gameId = this.generateId();
+    const gameId = this.generateId();
     const numbers = this.generateBingoNumbers(min, max, allowDuplicates);
-    
+    const gameName = `${this.username} vs ${targetUsername}`;
+    const settings = { min, max, allowDuplicates };
+
+    // Das Spiel wird sofort angelegt (Status "waiting"). So steht es direkt in
+    // "Meine Spiele", und der Herausforderer wartet auf dem Warte-Bildschirm,
+    // bis der Gegner annimmt - dann öffnet sich das Spielfeld automatisch.
+    this.stopListening();
+    this.gameId = gameId;
+    this.isHost = true;
+    this.gameState = {
+        gameId: gameId,
+        gameName: gameName,
+        hostId: this.playerId,
+        hostUserId: this.userId,
+        hostName: this.username,
+        hostWins: this.userStats.wins || 0,
+        guestId: null,
+        guestUserId: null,
+        guestName: null,
+        guestWins: 0,
+        invitedUserId: targetUserId,
+        invitedName: targetUsername,
+        settings: settings,
+        hostBoard: numbers.host,
+        guestBoard: numbers.guest,
+        hostMarked: [],
+        guestMarked: [],
+        hostBingos: [],
+        guestBingos: [],
+        status: 'waiting',
+        winner: null,
+        createdAt: Date.now()
+    };
+
+    const created = await this.saveGameState({ create: true });
+    if (!created) {
+        alert('Herausforderung konnte nicht erstellt werden!');
+        this.resetGame();
+        return;
+    }
+
     const challengeData = {
-        challengeId: this.gameId,
-        gameName: `${this.username} vs ${targetUsername}`,
+        challengeId: gameId,
+        gameId: gameId,
+        gameName: gameName,
         fromUserId: this.userId,
         fromUsername: this.username,
         toUserId: targetUserId,
         toUsername: targetUsername,
-        settings: { min, max, allowDuplicates },
+        settings: settings,
+        // Für ältere, noch im Browser geöffnete App-Versionen, die das Spiel
+        // beim Annehmen selbst aus den Spielfeldern erstellen
         boards: numbers,
         status: 'pending',
         createdAt: Date.now()
     };
-    
-    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${this.gameId}`);
-    await window.firebaseSet(challengeRef, challengeData);
-    
-    alert(`Herausforderung an ${targetUsername} gesendet!`);
+
+    try {
+        const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${gameId}`);
+        await window.firebaseSet(challengeRef, challengeData);
+    } catch (error) {
+        console.error('Challenge error:', error);
+        await this.cancelGame();
+        alert('Herausforderung konnte nicht gesendet werden!');
+        return;
+    }
+
+    this.showWaitingScreen();
+    this.listenToGameChanges();
+    alert(`Herausforderung an ${targetUsername} gesendet! Sobald angenommen wird, startet das Spiel automatisch.`);
 };
 
 BingoGame.prototype.listenToChallenges = function() {
@@ -1350,17 +1425,24 @@ BingoGame.prototype.listenToChallenges = function() {
     
     const challengesRef = window.firebaseRef(window.firebaseDb, 'challenges');
     this.challengeListener = window.firebaseOnValue(challengesRef, (snapshot) => {
-        if (!snapshot.exists()) return;
-        
-        const challenges = snapshot.val();
-        
+        const challenges = snapshot.exists() ? snapshot.val() : {};
+        let openChallenge = null;
+
         for (let challengeId in challenges) {
             const challenge = challenges[challengeId];
-            
-            if (challenge.toUserId === this.userId && challenge.status === 'pending') {
-                this.showChallengeModal(challenge);
+
+            if (challenge && challenge.toUserId === this.userId && challenge.status === 'pending') {
+                openChallenge = { ...challenge, challengeId: challenge.challengeId || challengeId };
                 break;
             }
+        }
+
+        if (openChallenge) {
+            this.showChallengeModal(openChallenge);
+        } else if (this.pendingChallenge) {
+            // Herausforderung wurde zurückgezogen - Fenster schließen
+            this.pendingChallenge = null;
+            document.getElementById('challengeModal').classList.add('hidden');
         }
     });
 };
@@ -1383,54 +1465,124 @@ BingoGame.prototype.showChallengeModal = function(challenge) {
 
 BingoGame.prototype.acceptChallenge = async function() {
     if (!this.pendingChallenge || !window.firebaseDb) return;
-    
+
     const challenge = this.pendingChallenge;
-    this.gameId = challenge.challengeId;
-    this.isHost = false;
-    
-    this.gameState = {
-        gameId: this.gameId,
-        gameName: challenge.gameName || `${challenge.fromUsername} vs ${this.username}`,
-        hostId: this.generateId(),
-        hostUserId: challenge.fromUserId,
-        hostName: challenge.fromUsername,
-        hostWins: 0,
-        guestId: this.generateId(),
-        guestUserId: this.userId,
-        guestName: this.username,
-        guestWins: this.userStats.wins,
-        settings: challenge.settings,
-        hostBoard: challenge.boards.host,
-        guestBoard: challenge.boards.guest,
-        hostMarked: [],
-        guestMarked: [],
-        hostBingos: [],
-        guestBingos: [],
-        status: 'playing',
-        winner: null,
-        createdAt: Date.now()
-    };
-    
-    await this.saveGameState();
-    
-    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${challenge.challengeId}`);
-    await window.firebaseRemove(challengeRef);
-    
-    document.getElementById('challengeModal').classList.add('hidden');
     this.pendingChallenge = null;
-    
+    document.getElementById('challengeModal').classList.add('hidden');
+
+    const gameId = challenge.gameId || challenge.challengeId;
+    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${challenge.challengeId || gameId}`);
+    const removeChallenge = () => window.firebaseRemove(challengeRef).catch(error => {
+        console.error('Remove challenge error:', error);
+    });
+
+    if (!gameId) {
+        await removeChallenge();
+        alert('Diese Herausforderung ist ungültig.');
+        return;
+    }
+
+    const existingGame = await this.loadGameState(gameId);
+
+    if (existingGame) {
+        // Normalfall: der Herausforderer hat das Spiel schon angelegt und wartet
+        const invitedSomeoneElse = existingGame.invitedUserId && existingGame.invitedUserId !== this.userId;
+        const alreadyTaken = existingGame.guestUserId && existingGame.guestUserId !== this.userId;
+        if (existingGame.status === 'finished' || invitedSomeoneElse || alreadyTaken) {
+            await removeChallenge();
+            alert('Diese Herausforderung ist nicht mehr gültig.');
+            return;
+        }
+
+        // Listener eines evtl. noch offenen anderen Spiels abmelden, bevor umgeschaltet wird
+        this.stopListening();
+        this.gameId = gameId;
+        this.isHost = false;
+        this.gameState = {
+            ...existingGame,
+            guestId: this.playerId,
+            guestUserId: this.userId,
+            guestName: this.username,
+            guestWins: this.userStats.wins || 0,
+            status: 'playing'
+        };
+        const saved = await this.saveGameState();
+        await removeChallenge();
+        if (!saved) {
+            if (this.gameId === gameId) this.resetGame();
+            alert('Die Herausforderung wurde inzwischen abgebrochen.');
+            return;
+        }
+    } else if (!challenge.gameId && challenge.boards && challenge.boards.host && challenge.boards.guest) {
+        // Herausforderung von einer älteren App-Version, die noch kein Spiel anlegt
+        // (neue Herausforderungen haben ein gameId-Feld - fehlt deren Spiel, wurde abgebrochen)
+        this.stopListening();
+        this.gameId = gameId;
+        this.isHost = false;
+        this.gameState = {
+            gameId: gameId,
+            gameName: challenge.gameName || `${challenge.fromUsername} vs ${this.username}`,
+            hostId: this.generateId(),
+            hostUserId: challenge.fromUserId,
+            hostName: challenge.fromUsername,
+            hostWins: 0,
+            guestId: this.playerId,
+            guestUserId: this.userId,
+            guestName: this.username,
+            guestWins: this.userStats.wins || 0,
+            settings: challenge.settings || {},
+            hostBoard: challenge.boards.host,
+            guestBoard: challenge.boards.guest,
+            hostMarked: [],
+            guestMarked: [],
+            hostBingos: [],
+            guestBingos: [],
+            status: 'playing',
+            winner: null,
+            createdAt: Date.now()
+        };
+        const created = await this.saveGameState({ create: true });
+        await removeChallenge();
+        if (!created) {
+            alert('Spiel konnte nicht erstellt werden!');
+            this.resetGame();
+            return;
+        }
+    } else {
+        // Spiel wurde vom Herausforderer schon abgebrochen
+        await removeChallenge();
+        alert('Die Herausforderung wurde inzwischen abgebrochen.');
+        return;
+    }
+
     this.showGameScreen();
     this.listenToGameChanges();
 };
 
 BingoGame.prototype.declineChallenge = async function() {
     if (!this.pendingChallenge || !window.firebaseDb) return;
-    
-    const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${this.pendingChallenge.challengeId}`);
-    await window.firebaseRemove(challengeRef);
-    
-    document.getElementById('challengeModal').classList.add('hidden');
+
+    const challenge = this.pendingChallenge;
     this.pendingChallenge = null;
+    document.getElementById('challengeModal').classList.add('hidden');
+
+    const gameId = challenge.gameId || challenge.challengeId;
+
+    try {
+        const challengeRef = window.firebaseRef(window.firebaseDb, `challenges/${challenge.challengeId || gameId}`);
+        await window.firebaseRemove(challengeRef);
+
+        // Das wartende Spiel des Herausforderers ebenfalls entfernen,
+        // damit er nicht endlos auf dem Warte-Bildschirm hängt
+        if (gameId) {
+            const game = await this.loadGameState(gameId);
+            if (game && game.status === 'waiting' && game.invitedUserId === this.userId) {
+                await window.firebaseRemove(window.firebaseRef(window.firebaseDb, `games/${gameId}`));
+            }
+        }
+    } catch (error) {
+        console.error('Decline challenge error:', error);
+    }
 };
 
 // Update showSetupScreen to start online presence and listen to games
@@ -1629,7 +1781,8 @@ BingoGame.prototype.renderMyGames = function(games) {
       try {
         const isHost = game.hostUserId === this.userId;
         const opponent = isHost ? game.guestName : game.hostName;
-        const opponentText = opponent || 'Warte auf Gegner...';
+        const opponentText = opponent ||
+            (game.invitedName ? `${game.invitedName} (Herausforderung offen)` : 'Warte auf Gegner...');
         
         let statusText = '';
         let statusClass = '';
